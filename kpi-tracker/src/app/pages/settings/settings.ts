@@ -281,7 +281,7 @@ export class Settings implements OnInit {
   }
 
   saveTemplate(): void {
-    if (this.templateForm.valid) {
+    if (this.templateForm.valid && this.editingTemplateItems.length > 0) {
       const templateData: ChecklistTemplate = {
         id: this.editingTemplate?.id || '',
         departmentId: this.selectedDepartmentId,
@@ -300,6 +300,8 @@ export class Settings implements OnInit {
 
       this.loadTemplates();
       this.cancelTemplateEdit();
+    } else if (this.editingTemplateItems.length === 0) {
+      alert('Template harus memiliki minimal satu item!');
     }
   }
 
@@ -329,7 +331,7 @@ export class Settings implements OnInit {
   addItemToTemplate(): void {
     if (this.newItemForm.valid) {
       const itemType = this.newItemForm.value.type;
-      const optionsStr = this.newItemForm.value.options?.trim();
+      const optionsStr = this.newItemForm.value.options?.trim() || '';
       
       const newItem: ChecklistItem = {
         id: `item-${Date.now()}`,
@@ -338,7 +340,7 @@ export class Settings implements OnInit {
         required: this.newItemForm.value.required
       };
 
-      if ((itemType === 'select' || itemType === 'radio') && optionsStr) {
+      if ((itemType === 'select' || itemType === 'radio') && optionsStr.length > 0) {
         newItem.options = optionsStr.split(',').map((opt: string) => opt.trim()).filter((opt: string) => opt);
       }
 
