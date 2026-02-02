@@ -13,7 +13,7 @@ import { ChecklistTemplate, ChecklistSubmission, ChecklistResponse, Staff, Sched
   styleUrl: './crewstore.css',
   standalone: true
 })
-export class Crewstore implements OnInit {
+export class CrewstoreComponent implements OnInit {
   activeTab: 'opening' | 'closing' = 'opening';
   
   // Opening checklist data
