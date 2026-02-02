@@ -1,0 +1,497 @@
+<div class="container mx-auto px-4 py-8">
+  <h1 class="text-3xl font-bold mb-6 text-gray-800">Crewstore Checklist</h1>
+
+  <!-- Tabs -->
+  <div class="mb-6 border-b border-gray-200">
+    <nav class="flex space-x-4">
+      <button
+        (click)="switchTab('opening')"
+        [class.border-blue-500]="activeTab === 'opening'"
+        [class.text-blue-600]="activeTab === 'opening'"
+        [class.border-transparent]="activeTab !== 'opening'"
+        [class.text-gray-500]="activeTab !== 'opening'"
+        class="px-4 py-2 border-b-2 font-medium transition-colors hover:text-blue-600"
+      >
+        Opening Checklist
+      </button>
+      <button
+        (click)="switchTab('closing')"
+        [class.border-blue-500]="activeTab === 'closing'"
+        [class.text-blue-600]="activeTab === 'closing'"
+        [class.border-transparent]="activeTab !== 'closing'"
+        [class.text-gray-500]="activeTab !== 'closing'"
+        class="px-4 py-2 border-b-2 font-medium transition-colors hover:text-blue-600"
+      >
+        Closing Checklist
+      </button>
+    </nav>
+  </div>
+
+  <!-- Opening Checklist Tab -->
+  <div *ngIf="activeTab === 'opening'" class="space-y-6">
+    <!-- Opening Form -->
+    <app-card title="Opening Checklist" color="#10B981" icon="wb_sunny">
+      <form class="space-y-4">
+        <!-- Date -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Tanggal</label>
+          <input
+            type="date"
+            [(ngModel)]="openingDate"
+            name="openingDate"
+            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+
+        <!-- Opening Time -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">
+            Jam Buka Pintu <span class="text-red-500">*</span>
+          </label>
+          <input
+            type="time"
+            [(ngModel)]="openingTime"
+            name="openingTime"
+            required
+            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+
+        <!-- Checkboxes -->
+        <div class="space-y-3">
+          <div class="flex items-center">
+            <input
+              type="checkbox"
+              id="sweepFloor"
+              [(ngModel)]="sweepFloor"
+              name="sweepFloor"
+              class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+            />
+            <label for="sweepFloor" class="ml-2 text-sm text-gray-700">
+              Nyapu lantai <span class="text-red-500">*</span>
+            </label>
+          </div>
+
+          <div class="flex items-center">
+            <input
+              type="checkbox"
+              id="mopFloor"
+              [(ngModel)]="mopFloor"
+              name="mopFloor"
+              class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+            />
+            <label for="mopFloor" class="ml-2 text-sm text-gray-700">
+              Ngepel <span class="text-red-500">*</span>
+            </label>
+          </div>
+
+          <div class="flex items-center">
+            <input
+              type="checkbox"
+              id="cleanGlass"
+              [(ngModel)]="cleanGlass"
+              name="cleanGlass"
+              class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+            />
+            <label for="cleanGlass" class="ml-2 text-sm text-gray-700">Lap kaca</label>
+          </div>
+
+          <div class="flex items-center">
+            <input
+              type="checkbox"
+              id="checkCashier"
+              [(ngModel)]="checkCashier"
+              name="checkCashier"
+              class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+            />
+            <label for="checkCashier" class="ml-2 text-sm text-gray-700">Cek kasir</label>
+          </div>
+        </div>
+
+        <!-- Radio Buttons -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">
+            Status Keran <span class="text-red-500">*</span>
+          </label>
+          <div class="space-y-2">
+            <div class="flex items-center">
+              <input
+                type="radio"
+                id="faucetOn"
+                [(ngModel)]="faucetStatus"
+                name="faucetStatus"
+                value="Nyala"
+                class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+              />
+              <label for="faucetOn" class="ml-2 text-sm text-gray-700">Nyala</label>
+            </div>
+            <div class="flex items-center">
+              <input
+                type="radio"
+                id="faucetOff"
+                [(ngModel)]="faucetStatus"
+                name="faucetStatus"
+                value="Mati"
+                class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+              />
+              <label for="faucetOff" class="ml-2 text-sm text-gray-700">Mati</label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Notes -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Catatan</label>
+          <textarea
+            [(ngModel)]="openingNotes"
+            name="openingNotes"
+            rows="3"
+            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Tambahkan catatan jika diperlukan..."
+          ></textarea>
+        </div>
+
+        <!-- Save Button -->
+        <button
+          type="button"
+          (click)="saveOpeningChecklist()"
+          class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors font-medium"
+        >
+          Simpan Opening Checklist
+        </button>
+      </form>
+    </app-card>
+
+    <!-- Opening History -->
+    <app-card title="Riwayat Opening" color="#6366F1" icon="history">
+      <div *ngIf="openingHistory.length === 0" class="text-center py-8 text-gray-500">
+        Belum ada riwayat opening checklist
+      </div>
+      <div *ngIf="openingHistory.length > 0" class="space-y-4">
+        <div
+          *ngFor="let submission of openingHistory"
+          class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+        >
+          <div class="flex justify-between items-start mb-3">
+            <div>
+              <h4 class="font-medium text-gray-800">{{ formatDate(submission.date) }}</h4>
+              <p class="text-sm text-gray-500">
+                Submitted: {{ formatDateTime(submission.submittedAt) }}
+              </p>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-3 text-sm">
+            <div>
+              <span class="text-gray-600">Jam Buka:</span>
+              <span class="ml-2 font-medium">{{ getResponseValue(submission, 'opening-time') }}</span>
+            </div>
+            <div>
+              <span class="text-gray-600">Status Keran:</span>
+              <span class="ml-2 font-medium">{{ getResponseValue(submission, 'faucet-status') }}</span>
+            </div>
+            <div class="col-span-2">
+              <span class="text-gray-600">Tasks:</span>
+              <div class="ml-2 mt-1 space-y-1">
+                <div class="flex items-center">
+                  <span
+                    [class.text-green-600]="getResponseValue(submission, 'sweep-floor')"
+                    [class.text-gray-400]="!getResponseValue(submission, 'sweep-floor')"
+                    class="material-icons text-sm mr-1"
+                  >
+                    {{ getResponseValue(submission, 'sweep-floor') ? 'check_circle' : 'cancel' }}
+                  </span>
+                  <span class="text-sm">Nyapu lantai</span>
+                </div>
+                <div class="flex items-center">
+                  <span
+                    [class.text-green-600]="getResponseValue(submission, 'mop-floor')"
+                    [class.text-gray-400]="!getResponseValue(submission, 'mop-floor')"
+                    class="material-icons text-sm mr-1"
+                  >
+                    {{ getResponseValue(submission, 'mop-floor') ? 'check_circle' : 'cancel' }}
+                  </span>
+                  <span class="text-sm">Ngepel</span>
+                </div>
+                <div class="flex items-center">
+                  <span
+                    [class.text-green-600]="getResponseValue(submission, 'clean-glass')"
+                    [class.text-gray-400]="!getResponseValue(submission, 'clean-glass')"
+                    class="material-icons text-sm mr-1"
+                  >
+                    {{ getResponseValue(submission, 'clean-glass') ? 'check_circle' : 'cancel' }}
+                  </span>
+                  <span class="text-sm">Lap kaca</span>
+                </div>
+                <div class="flex items-center">
+                  <span
+                    [class.text-green-600]="getResponseValue(submission, 'check-cashier')"
+                    [class.text-gray-400]="!getResponseValue(submission, 'check-cashier')"
+                    class="material-icons text-sm mr-1"
+                  >
+                    {{ getResponseValue(submission, 'check-cashier') ? 'check_circle' : 'cancel' }}
+                  </span>
+                  <span class="text-sm">Cek kasir</span>
+                </div>
+              </div>
+            </div>
+            <div *ngIf="submission.additionalNotes" class="col-span-2">
+              <span class="text-gray-600">Catatan:</span>
+              <p class="ml-2 text-gray-700 italic">{{ submission.additionalNotes }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </app-card>
+  </div>
+
+  <!-- Closing Checklist Tab -->
+  <div *ngIf="activeTab === 'closing'" class="space-y-6">
+    <!-- Closing Form -->
+    <app-card title="Closing Checklist" color="#EF4444" icon="nightlight">
+      <form class="space-y-4">
+        <!-- Date -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Tanggal</label>
+          <input
+            type="date"
+            [(ngModel)]="closingDate"
+            name="closingDate"
+            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+
+        <!-- Closing Time -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">
+            Jam Tutup <span class="text-red-500">*</span>
+          </label>
+          <input
+            type="time"
+            [(ngModel)]="closingTime"
+            name="closingTime"
+            required
+            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+
+        <!-- Checkboxes -->
+        <div class="space-y-3">
+          <div class="flex items-center">
+            <input
+              type="checkbox"
+              id="closeCashier"
+              [(ngModel)]="closeCashier"
+              name="closeCashier"
+              class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+            />
+            <label for="closeCashier" class="ml-2 text-sm text-gray-700">
+              Tutup kasir <span class="text-red-500">*</span>
+            </label>
+          </div>
+
+          <div class="flex items-center">
+            <input
+              type="checkbox"
+              id="checkStock"
+              [(ngModel)]="checkStock"
+              name="checkStock"
+              class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+            />
+            <label for="checkStock" class="ml-2 text-sm text-gray-700">
+              Cek stok <span class="text-red-500">*</span>
+            </label>
+          </div>
+
+          <div class="flex items-center">
+            <input
+              type="checkbox"
+              id="cleanStore"
+              [(ngModel)]="cleanStore"
+              name="cleanStore"
+              class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+            />
+            <label for="cleanStore" class="ml-2 text-sm text-gray-700">
+              Bersihkan toko <span class="text-red-500">*</span>
+            </label>
+          </div>
+
+          <div class="flex items-center">
+            <input
+              type="checkbox"
+              id="lockDoor"
+              [(ngModel)]="lockDoor"
+              name="lockDoor"
+              class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+            />
+            <label for="lockDoor" class="ml-2 text-sm text-gray-700">
+              Kunci pintu <span class="text-red-500">*</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Notes -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Catatan</label>
+          <textarea
+            [(ngModel)]="closingNotes"
+            name="closingNotes"
+            rows="3"
+            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Tambahkan catatan jika diperlukan..."
+          ></textarea>
+        </div>
+
+        <!-- Tomorrow's Schedule -->
+        <div class="border-t pt-4">
+          <h3 class="text-lg font-medium text-gray-800 mb-3">Jadwal Besok</h3>
+          <div class="space-y-3">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Shift Pagi</label>
+              <select
+                [(ngModel)]="shiftPagi"
+                name="shiftPagi"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Pilih staff...</option>
+                <option *ngFor="let staff of staffList" [value]="staff.id">
+                  {{ staff.name }}
+                </option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Shift Siang</label>
+              <select
+                [(ngModel)]="shiftSiang"
+                name="shiftSiang"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Pilih staff...</option>
+                <option *ngFor="let staff of staffList" [value]="staff.id">
+                  {{ staff.name }}
+                </option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Shift Stok</label>
+              <select
+                [(ngModel)]="shiftStok"
+                name="shiftStok"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Pilih staff...</option>
+                <option *ngFor="let staff of staffList" [value]="staff.id">
+                  {{ staff.name }}
+                </option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Save Button -->
+        <button
+          type="button"
+          (click)="saveClosingChecklist()"
+          class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors font-medium"
+        >
+          Simpan Closing Checklist
+        </button>
+      </form>
+    </app-card>
+
+    <!-- Closing History -->
+    <app-card title="Riwayat Closing" color="#6366F1" icon="history">
+      <div *ngIf="closingHistory.length === 0" class="text-center py-8 text-gray-500">
+        Belum ada riwayat closing checklist
+      </div>
+      <div *ngIf="closingHistory.length > 0" class="space-y-4">
+        <div
+          *ngFor="let submission of closingHistory"
+          class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+        >
+          <div class="flex justify-between items-start mb-3">
+            <div>
+              <h4 class="font-medium text-gray-800">{{ formatDate(submission.date) }}</h4>
+              <p class="text-sm text-gray-500">
+                Submitted: {{ formatDateTime(submission.submittedAt) }}
+              </p>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-3 text-sm">
+            <div>
+              <span class="text-gray-600">Jam Tutup:</span>
+              <span class="ml-2 font-medium">{{ getResponseValue(submission, 'closing-time') }}</span>
+            </div>
+            <div class="col-span-2">
+              <span class="text-gray-600">Tasks:</span>
+              <div class="ml-2 mt-1 space-y-1">
+                <div class="flex items-center">
+                  <span
+                    [class.text-green-600]="getResponseValue(submission, 'close-cashier')"
+                    [class.text-gray-400]="!getResponseValue(submission, 'close-cashier')"
+                    class="material-icons text-sm mr-1"
+                  >
+                    {{ getResponseValue(submission, 'close-cashier') ? 'check_circle' : 'cancel' }}
+                  </span>
+                  <span class="text-sm">Tutup kasir</span>
+                </div>
+                <div class="flex items-center">
+                  <span
+                    [class.text-green-600]="getResponseValue(submission, 'check-stock')"
+                    [class.text-gray-400]="!getResponseValue(submission, 'check-stock')"
+                    class="material-icons text-sm mr-1"
+                  >
+                    {{ getResponseValue(submission, 'check-stock') ? 'check_circle' : 'cancel' }}
+                  </span>
+                  <span class="text-sm">Cek stok</span>
+                </div>
+                <div class="flex items-center">
+                  <span
+                    [class.text-green-600]="getResponseValue(submission, 'clean-store')"
+                    [class.text-gray-400]="!getResponseValue(submission, 'clean-store')"
+                    class="material-icons text-sm mr-1"
+                  >
+                    {{ getResponseValue(submission, 'clean-store') ? 'check_circle' : 'cancel' }}
+                  </span>
+                  <span class="text-sm">Bersihkan toko</span>
+                </div>
+                <div class="flex items-center">
+                  <span
+                    [class.text-green-600]="getResponseValue(submission, 'lock-door')"
+                    [class.text-gray-400]="!getResponseValue(submission, 'lock-door')"
+                    class="material-icons text-sm mr-1"
+                  >
+                    {{ getResponseValue(submission, 'lock-door') ? 'check_circle' : 'cancel' }}
+                  </span>
+                  <span class="text-sm">Kunci pintu</span>
+                </div>
+              </div>
+            </div>
+            <div *ngIf="submission.scheduleInfo" class="col-span-2 border-t pt-2 mt-2">
+              <span class="text-gray-600 font-medium">Jadwal Besok:</span>
+              <div class="ml-2 mt-1 space-y-1">
+                <div *ngIf="submission.scheduleInfo.shiftPagi" class="text-sm">
+                  <span class="text-gray-600">Shift Pagi:</span>
+                  <span class="ml-1 font-medium">{{ getStaffName(submission.scheduleInfo.shiftPagi) }}</span>
+                </div>
+                <div *ngIf="submission.scheduleInfo.shiftSiang" class="text-sm">
+                  <span class="text-gray-600">Shift Siang:</span>
+                  <span class="ml-1 font-medium">{{ getStaffName(submission.scheduleInfo.shiftSiang) }}</span>
+                </div>
+                <div *ngIf="submission.scheduleInfo.shiftStok" class="text-sm">
+                  <span class="text-gray-600">Shift Stok:</span>
+                  <span class="ml-1 font-medium">{{ getStaffName(submission.scheduleInfo.shiftStok) }}</span>
+                </div>
+              </div>
+            </div>
+            <div *ngIf="submission.additionalNotes" class="col-span-2">
+              <span class="text-gray-600">Catatan:</span>
+              <p class="ml-2 text-gray-700 italic">{{ submission.additionalNotes }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </app-card>
+  </div>
+</div>
