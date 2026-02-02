@@ -13,7 +13,7 @@ import { ProgressBarComponent } from '../../shared/progress-bar/progress-bar';
   styleUrl: './host-live.css',
   standalone: true
 })
-export class HostLive implements OnInit {
+export class HostLiveComponent implements OnInit {
   hosts: Host[] = [];
   currentMonth: string = '';
   departmentColor: string = '#8B5CF6';
