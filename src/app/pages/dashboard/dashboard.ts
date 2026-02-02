@@ -77,4 +77,12 @@ export class DashboardComponent implements OnInit {
       day: 'numeric' 
     });
   }
+
+  get currentDay(): number {
+    return new Date().getDate();
+  }
+
+  get currentMonthYear(): string {
+    return new Date().toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+  }
 }

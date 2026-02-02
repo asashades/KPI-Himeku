@@ -14,7 +14,7 @@ import { CardComponent } from '../../shared/card/card';
   styleUrl: './settings.css',
   standalone: true
 })
-export class Settings implements OnInit {
+export class SettingsComponent implements OnInit {
   activeTab: 'staff' | 'department' | 'template' = 'staff';
   
   // Staff Management

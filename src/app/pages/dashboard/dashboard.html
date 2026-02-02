@@ -75,9 +75,9 @@
     <!-- Mini Calendar -->
     <app-card title="Calendar" icon="calendar_today">
       <div class="text-center py-4">
-        <p class="text-4xl font-bold text-gray-800">{{ new Date().getDate() }}</p>
+        <p class="text-4xl font-bold text-gray-800">{{ currentDay }}</p>
         <p class="text-lg text-gray-600 mt-2">
-          {{ new Date().toLocaleDateString('id-ID', { month: 'long', year: 'numeric' }) }}
+          {{ currentMonthYear }}
         </p>
         <p class="text-sm text-gray-500 mt-4">
           <span class="inline-flex items-center">
