@@ -185,7 +185,7 @@
         <div class="flex-1 min-w-0">
           <div class="font-semibold text-gray-900">{{ item.host.name }}</div>
           <div class="text-sm text-gray-600">
-            {{ formatHours(item.totalHours, item.totalMinutes % 60) }} • {{ item.percentage }}%
+            {{ getFormattedTotalHours(item.totalMinutes) }} • {{ item.percentage }}%
           </div>
         </div>
 

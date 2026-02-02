@@ -133,6 +133,12 @@ export class HostLive implements OnInit {
     }
   }
 
+  getFormattedTotalHours(totalMinutes: number): string {
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    return this.formatHours(hours, minutes);
+  }
+
   getMonthLabel(): string {
     const date = new Date(this.currentMonth + '-01');
     return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
