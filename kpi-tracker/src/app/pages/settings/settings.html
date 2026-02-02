@@ -1,0 +1,485 @@
+<div class="container mx-auto px-4 py-6 max-w-7xl">
+  <h1 class="text-3xl font-bold mb-6 text-gray-800">Pengaturan</h1>
+
+  <!-- Tabs -->
+  <div class="flex gap-2 mb-6 border-b border-gray-200">
+    <button 
+      (click)="switchTab('staff')"
+      [class.border-b-2]="activeTab === 'staff'"
+      [class.border-blue-500]="activeTab === 'staff'"
+      [class.text-blue-600]="activeTab === 'staff'"
+      [class.text-gray-600]="activeTab !== 'staff'"
+      class="px-4 py-2 font-medium transition-colors hover:text-blue-600">
+      Kelola Staff
+    </button>
+    <button 
+      (click)="switchTab('department')"
+      [class.border-b-2]="activeTab === 'department'"
+      [class.border-blue-500]="activeTab === 'department'"
+      [class.text-blue-600]="activeTab === 'department'"
+      [class.text-gray-600]="activeTab !== 'department'"
+      class="px-4 py-2 font-medium transition-colors hover:text-blue-600">
+      Kelola Departemen
+    </button>
+    <button 
+      (click)="switchTab('template')"
+      [class.border-b-2]="activeTab === 'template'"
+      [class.border-blue-500]="activeTab === 'template'"
+      [class.text-blue-600]="activeTab === 'template'"
+      [class.text-gray-600]="activeTab !== 'template'"
+      class="px-4 py-2 font-medium transition-colors hover:text-blue-600">
+      Template Checklist
+    </button>
+  </div>
+
+  <!-- Tab 1: Staff Management -->
+  <div *ngIf="activeTab === 'staff'" class="space-y-6">
+    <div class="flex justify-between items-center">
+      <h2 class="text-2xl font-semibold text-gray-700">Kelola Staff</h2>
+      <button 
+        (click)="showAddStaffForm()"
+        class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors">
+        <span class="material-icons text-sm">add</span>
+        Tambah Staff
+      </button>
+    </div>
+
+    <!-- Add/Edit Staff Form -->
+    <app-card *ngIf="showStaffForm" title="{{editingStaff ? 'Edit Staff' : 'Tambah Staff Baru'}}" icon="person" color="#3B82F6">
+      <form [formGroup]="staffForm" (ngSubmit)="saveStaff()" class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Nama Staff</label>
+          <input 
+            type="text" 
+            formControlName="name"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            placeholder="Masukkan nama staff">
+          <div *ngIf="staffForm.get('name')?.invalid && staffForm.get('name')?.touched" class="text-red-500 text-sm mt-1">
+            Nama staff wajib diisi
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Departemen</label>
+          <select 
+            formControlName="departmentId"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+            <option value="">Pilih Departemen</option>
+            <option *ngFor="let dept of departments" [value]="dept.id">{{dept.name}}</option>
+          </select>
+          <div *ngIf="staffForm.get('departmentId')?.invalid && staffForm.get('departmentId')?.touched" class="text-red-500 text-sm mt-1">
+            Departemen wajib dipilih
+          </div>
+        </div>
+
+        <div class="flex gap-2 justify-end">
+          <button 
+            type="button"
+            (click)="cancelStaffEdit()"
+            class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+            Batal
+          </button>
+          <button 
+            type="submit"
+            [disabled]="staffForm.invalid"
+            class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors">
+            {{editingStaff ? 'Perbarui' : 'Simpan'}}
+          </button>
+        </div>
+      </form>
+    </app-card>
+
+    <!-- Staff List Grouped by Department -->
+    <div class="space-y-4">
+      <div *ngFor="let dept of departments">
+        <app-card 
+          *ngIf="staffGrouped[dept.id] && staffGrouped[dept.id].length > 0"
+          [title]="dept.name" 
+          [icon]="dept.icon" 
+          [color]="dept.color">
+          <div class="space-y-2">
+            <div 
+              *ngFor="let staff of staffGrouped[dept.id]"
+              class="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+              <div class="flex items-center gap-3">
+                <span class="material-icons text-gray-600">person</span>
+                <span class="font-medium text-gray-800">{{staff.name}}</span>
+              </div>
+              <div class="flex gap-2">
+                <button 
+                  (click)="editStaff(staff)"
+                  class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                  <span class="material-icons text-sm">edit</span>
+                </button>
+                <button 
+                  (click)="deleteStaff(staff)"
+                  class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                  <span class="material-icons text-sm">delete</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </app-card>
+      </div>
+    </div>
+
+    <!-- Empty State -->
+    <div *ngIf="staffList.length === 0" class="text-center py-12">
+      <span class="material-icons text-6xl text-gray-300">people</span>
+      <p class="text-gray-500 mt-4">Belum ada staff. Tambahkan staff baru untuk memulai.</p>
+    </div>
+  </div>
+
+  <!-- Tab 2: Department Management -->
+  <div *ngIf="activeTab === 'department'" class="space-y-6">
+    <div class="flex justify-between items-center">
+      <h2 class="text-2xl font-semibold text-gray-700">Kelola Departemen</h2>
+      <button 
+        (click)="showAddDepartmentForm()"
+        class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors">
+        <span class="material-icons text-sm">add</span>
+        Tambah Departemen
+      </button>
+    </div>
+
+    <!-- Add/Edit Department Form -->
+    <app-card *ngIf="showDepartmentForm" title="{{editingDepartment ? 'Edit Departemen' : 'Tambah Departemen Baru'}}" icon="folder" color="#3B82F6">
+      <form [formGroup]="departmentForm" (ngSubmit)="saveDepartment()" class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Nama Departemen</label>
+          <input 
+            type="text" 
+            formControlName="name"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            placeholder="Masukkan nama departemen">
+          <div *ngIf="departmentForm.get('name')?.invalid && departmentForm.get('name')?.touched" class="text-red-500 text-sm mt-1">
+            Nama departemen wajib diisi
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Warna</label>
+          <div class="flex gap-2 items-center">
+            <input 
+              type="color" 
+              formControlName="color"
+              class="h-10 w-20 border border-gray-300 rounded cursor-pointer">
+            <input 
+              type="text" 
+              formControlName="color"
+              class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="#3B82F6">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Icon (Material Icons)</label>
+          <input 
+            type="text" 
+            formControlName="icon"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            placeholder="e.g., store, inventory_2, tv">
+          <p class="text-xs text-gray-500 mt-1">
+            Lihat icon di: 
+            <a href="https://fonts.google.com/icons" target="_blank" class="text-blue-500 hover:underline">
+              Material Icons
+            </a>
+          </p>
+        </div>
+
+        <div class="flex gap-2 justify-end">
+          <button 
+            type="button"
+            (click)="cancelDepartmentEdit()"
+            class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+            Batal
+          </button>
+          <button 
+            type="submit"
+            [disabled]="departmentForm.invalid"
+            class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors">
+            {{editingDepartment ? 'Perbarui' : 'Simpan'}}
+          </button>
+        </div>
+      </form>
+    </app-card>
+
+    <!-- Department List -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div 
+        *ngFor="let dept of departmentList"
+        class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+        <div class="flex items-start justify-between mb-3">
+          <div class="flex items-center gap-3">
+            <div 
+              class="w-12 h-12 rounded-lg flex items-center justify-center"
+              [style.background-color]="dept.color">
+              <span class="material-icons text-white">{{dept.icon}}</span>
+            </div>
+            <div>
+              <h3 class="font-semibold text-gray-800">{{dept.name}}</h3>
+              <p class="text-sm text-gray-500">{{dept.color}}</p>
+            </div>
+          </div>
+        </div>
+        <div class="flex gap-2 justify-end">
+          <button 
+            (click)="editDepartment(dept)"
+            class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+            <span class="material-icons text-sm">edit</span>
+          </button>
+          <button 
+            (click)="deleteDepartment(dept)"
+            class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+            <span class="material-icons text-sm">delete</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Empty State -->
+    <div *ngIf="departmentList.length === 0" class="text-center py-12">
+      <span class="material-icons text-6xl text-gray-300">folder</span>
+      <p class="text-gray-500 mt-4">Belum ada departemen. Tambahkan departemen baru untuk memulai.</p>
+    </div>
+  </div>
+
+  <!-- Tab 3: Template Checklist -->
+  <div *ngIf="activeTab === 'template'" class="space-y-6">
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <h2 class="text-2xl font-semibold text-gray-700">Template Checklist</h2>
+      <div class="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+        <select 
+          [(ngModel)]="selectedDepartmentId"
+          (ngModelChange)="onDepartmentChange()"
+          class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+          <option value="">Pilih Departemen</option>
+          <option *ngFor="let dept of departments" [value]="dept.id">{{dept.name}}</option>
+        </select>
+        <button 
+          (click)="showAddTemplateForm()"
+          [disabled]="!selectedDepartmentId"
+          class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed">
+          <span class="material-icons text-sm">add</span>
+          Tambah Template
+        </button>
+      </div>
+    </div>
+
+    <!-- Add/Edit Template Form -->
+    <app-card *ngIf="showTemplateForm" title="{{editingTemplate ? 'Edit Template' : 'Tambah Template Baru'}}" icon="checklist" color="#3B82F6">
+      <form [formGroup]="templateForm" (ngSubmit)="saveTemplate()" class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Nama Template</label>
+          <input 
+            type="text" 
+            formControlName="name"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            placeholder="Masukkan nama template">
+          <div *ngIf="templateForm.get('name')?.invalid && templateForm.get('name')?.touched" class="text-red-500 text-sm mt-1">
+            Nama template wajib diisi
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Tipe Template</label>
+          <select 
+            formControlName="type"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+            <option value="opening">Opening</option>
+            <option value="closing">Closing</option>
+            <option value="daily">Daily</option>
+          </select>
+        </div>
+
+        <!-- Template Items -->
+        <div>
+          <div class="flex justify-between items-center mb-2">
+            <label class="block text-sm font-medium text-gray-700">Item Checklist</label>
+            <button 
+              type="button"
+              (click)="showAddItemForm()"
+              class="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1">
+              <span class="material-icons text-sm">add</span>
+              Tambah Item
+            </button>
+          </div>
+
+          <!-- Add Item Form -->
+          <div *ngIf="showItemForm" class="mb-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
+            <form [formGroup]="newItemForm" (ngSubmit)="addItemToTemplate()">
+              <div class="space-y-3">
+                <div>
+                  <label class="block text-xs font-medium text-gray-600 mb-1">Label Item</label>
+                  <input 
+                    type="text" 
+                    formControlName="label"
+                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="e.g., Nyapu lantai">
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                  <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Tipe</label>
+                    <select 
+                      formControlName="type"
+                      class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                      <option value="checkbox">Checkbox</option>
+                      <option value="text">Text</option>
+                      <option value="select">Select</option>
+                      <option value="time">Time</option>
+                      <option value="radio">Radio</option>
+                    </select>
+                  </div>
+
+                  <div class="flex items-center">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        formControlName="required"
+                        class="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500">
+                      <span class="text-xs font-medium text-gray-600">Required</span>
+                    </label>
+                  </div>
+                </div>
+
+                <div *ngIf="newItemForm.get('type')?.value === 'select' || newItemForm.get('type')?.value === 'radio'">
+                  <label class="block text-xs font-medium text-gray-600 mb-1">Opsi (pisahkan dengan koma)</label>
+                  <input 
+                    type="text" 
+                    formControlName="options"
+                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="e.g., Nyala, Mati">
+                </div>
+
+                <div class="flex gap-2 justify-end">
+                  <button 
+                    type="button"
+                    (click)="cancelItemEdit()"
+                    class="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors">
+                    Batal
+                  </button>
+                  <button 
+                    type="submit"
+                    [disabled]="newItemForm.invalid"
+                    class="px-3 py-1.5 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors">
+                    Tambah
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+
+          <!-- Items List -->
+          <div class="space-y-2">
+            <div 
+              *ngFor="let item of editingTemplateItems; let i = index"
+              class="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg">
+              <div class="flex-1">
+                <div class="flex items-center gap-2">
+                  <span class="font-medium text-gray-800">{{item.label}}</span>
+                  <span *ngIf="item.required" class="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded">Required</span>
+                </div>
+                <div class="flex gap-2 mt-1">
+                  <span class="text-xs text-gray-500">{{getTypeLabel(item.type)}}</span>
+                  <span *ngIf="item.options && item.options.length > 0" class="text-xs text-gray-400">
+                    ({{item.options.join(', ')}})
+                  </span>
+                </div>
+              </div>
+              <button 
+                type="button"
+                (click)="removeItemFromTemplate(i)"
+                class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                <span class="material-icons text-sm">delete</span>
+              </button>
+            </div>
+
+            <div *ngIf="editingTemplateItems.length === 0" class="text-center py-6 text-gray-500 text-sm">
+              Belum ada item. Klik "Tambah Item" untuk menambahkan.
+            </div>
+          </div>
+        </div>
+
+        <div class="flex gap-2 justify-end pt-4 border-t">
+          <button 
+            type="button"
+            (click)="cancelTemplateEdit()"
+            class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+            Batal
+          </button>
+          <button 
+            type="submit"
+            [disabled]="templateForm.invalid || editingTemplateItems.length === 0"
+            class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors">
+            {{editingTemplate ? 'Perbarui' : 'Simpan'}}
+          </button>
+        </div>
+      </form>
+    </app-card>
+
+    <!-- Template List -->
+    <div *ngIf="selectedDepartmentId && !showTemplateForm" class="space-y-4">
+      <div 
+        *ngFor="let template of templateList"
+        class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+        <div class="flex items-start justify-between mb-3">
+          <div>
+            <div class="flex items-center gap-2">
+              <h3 class="font-semibold text-gray-800">{{template.name}}</h3>
+              <span 
+                class="text-xs px-2 py-1 rounded-full"
+                [class.bg-blue-100]="template.type === 'opening'"
+                [class.text-blue-700]="template.type === 'opening'"
+                [class.bg-orange-100]="template.type === 'closing'"
+                [class.text-orange-700]="template.type === 'closing'"
+                [class.bg-green-100]="template.type === 'daily'"
+                [class.text-green-700]="template.type === 'daily'">
+                {{getTypeLabel(template.type)}}
+              </span>
+            </div>
+            <p class="text-sm text-gray-500 mt-1">{{template.items.length}} item</p>
+          </div>
+          <div class="flex gap-2">
+            <button 
+              (click)="editTemplate(template)"
+              class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+              <span class="material-icons text-sm">edit</span>
+            </button>
+            <button 
+              (click)="deleteTemplate(template)"
+              class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+              <span class="material-icons text-sm">delete</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Template Items Preview -->
+        <div class="space-y-1">
+          <div 
+            *ngFor="let item of template.items.slice(0, 3)"
+            class="text-sm text-gray-600 flex items-center gap-2">
+            <span class="material-icons text-xs">{{item.type === 'checkbox' ? 'check_box_outline_blank' : 'label'}}</span>
+            <span>{{item.label}}</span>
+            <span *ngIf="item.required" class="text-xs text-red-500">*</span>
+          </div>
+          <div *ngIf="template.items.length > 3" class="text-sm text-gray-400 italic">
+            +{{template.items.length - 3}} item lainnya
+          </div>
+        </div>
+      </div>
+
+      <!-- Empty State -->
+      <div *ngIf="templateList.length === 0" class="text-center py-12">
+        <span class="material-icons text-6xl text-gray-300">checklist</span>
+        <p class="text-gray-500 mt-4">Belum ada template untuk departemen ini.</p>
+      </div>
+    </div>
+
+    <!-- No Department Selected -->
+    <div *ngIf="!selectedDepartmentId" class="text-center py-12">
+      <span class="material-icons text-6xl text-gray-300">folder_open</span>
+      <p class="text-gray-500 mt-4">Pilih departemen untuk melihat template checklist.</p>
+    </div>
+  </div>
+</div>
