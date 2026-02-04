@@ -19,8 +19,15 @@ class DatabaseWrapper {
       console.log('Connecting to PostgreSQL (Supabase)...');
       this.pool = new pg.Pool({
         connectionString: process.env.DATABASE_URL,
-        ssl: { rejectUnauthorized: false }
+        ssl: { rejectUnauthorized: false },
+        // Force IPv4 to avoid ENETUNREACH errors
+        connectionTimeoutMillis: 10000,
       });
+      
+      // Override DNS lookup to force IPv4
+      const dns = await import('dns');
+      dns.setDefaultResultOrder('ipv4first');
+      
       // Test connection
       const client = await this.pool.connect();
       console.log('Connected to PostgreSQL');
