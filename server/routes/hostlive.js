@@ -7,39 +7,60 @@ export default function (db) {
   const SPREADSHEET_ID = '1FiTL5F7M5s6VFqDq4c4EghEembfV7oLMVmAXINAMEww';
   const SHEET_NAME = 'RekapLive';
 
+  // Helper function to fetch from Google Sheets
+  async function fetchGoogleSheet(spreadsheetId, sheetName) {
+    const url = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetName)}`;
+    
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Google Sheets fetch failed: ${response.status}`);
+    }
+    
+    const text = await response.text();
+    
+    // Parse Google Sheets JSON response
+    const jsonString = text.substring(47, text.length - 2);
+    const data = JSON.parse(jsonString);
+    
+    // Extract headers and rows
+    const cols = data.table.cols.map(col => col.label || '');
+    const rows = data.table.rows.map(row => {
+      const obj = {};
+      row.c.forEach((cell, idx) => {
+        const header = cols[idx];
+        if (header) {
+          obj[header] = cell ? (cell.v !== null && cell.v !== undefined ? cell.v : (cell.f || '')) : '';
+        }
+      });
+      return obj;
+    });
+    
+    return rows;
+  }
+
   // Fetch Rekap Live from Google Sheets
   router.get('/rekap-live', async (req, res) => {
     try {
       const { startDate, endDate, email } = req.query;
       
-      const url = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(SHEET_NAME)}`;
-      
-      const response = await fetch(url);
-      const text = await response.text();
-      
-      // Parse Google Sheets JSON response
-      const jsonString = text.substring(47, text.length - 2);
-      const data = JSON.parse(jsonString);
-      
-      // Extract headers and rows
-      const cols = data.table.cols.map(col => col.label || '');
-      const rows = data.table.rows.map(row => {
-        const obj = {};
-        row.c.forEach((cell, idx) => {
-          const header = cols[idx];
-          if (header) {
-            obj[header] = cell ? (cell.v !== null && cell.v !== undefined ? cell.v : (cell.f || '')) : '';
-          }
-        });
-        return obj;
-      });
+      let rows;
+      try {
+        rows = await fetchGoogleSheet(SPREADSHEET_ID, SHEET_NAME);
+      } catch (fetchError) {
+        console.error('Google Sheets fetch error:', fetchError);
+        return res.json([]); // Return empty array instead of crashing
+      }
 
       // Get staff data for email validation
-      const staffList = await db.all('SELECT name, email FROM staff WHERE active = 1');
-      const staffMap = {};
-      staffList.forEach(s => {
-        if (s.email) staffMap[s.email.toLowerCase()] = s.name;
-      });
+      let staffMap = {};
+      try {
+        const staffList = await db.all('SELECT name, email FROM staff WHERE active = 1');
+        staffList.forEach(s => {
+          if (s.email) staffMap[s.email.toLowerCase()] = s.name;
+        });
+      } catch (dbError) {
+        console.error('Staff fetch error:', dbError);
+      }
 
       // Map to standard format
       let rekapLive = rows.map(row => {

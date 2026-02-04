@@ -6,6 +6,37 @@ export default function (db) {
   const SPREADSHEET_ID = '1pApwGf1xzE-y9Om8ztfeW91V7tuiYprZvgvjItIQdGg';
   const SHEET_NAME = 'Rekap_Gaji';
 
+  // Helper function to fetch from Google Sheets
+  async function fetchGoogleSheet(spreadsheetId, sheetName) {
+    const url = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetName)}`;
+    
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Google Sheets fetch failed: ${response.status}`);
+    }
+    
+    const text = await response.text();
+    
+    // Parse Google Sheets JSON response (remove prefix/suffix)
+    const jsonString = text.substring(47, text.length - 2);
+    const data = JSON.parse(jsonString);
+    
+    // Extract headers and rows
+    const cols = data.table.cols.map(col => col.label || '');
+    const rows = data.table.rows.map(row => {
+      const obj = {};
+      row.c.forEach((cell, idx) => {
+        const header = cols[idx];
+        if (header) {
+          obj[header] = cell ? (cell.v !== null && cell.v !== undefined ? cell.v : (cell.f || '')) : '';
+        }
+      });
+      return obj;
+    });
+    
+    return rows;
+  }
+
   // Fetch slip gaji from Google Sheets
   router.get('/', async (req, res) => {
     try {
@@ -13,28 +44,13 @@ export default function (db) {
       const userRole = req.user?.role;
       const userEmail = req.user?.email;
 
-      // Build Google Sheets URL for CSV export
-      const url = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(SHEET_NAME)}`;
-      
-      const response = await fetch(url);
-      const text = await response.text();
-      
-      // Parse Google Sheets JSON response (remove prefix/suffix)
-      const jsonString = text.substring(47, text.length - 2);
-      const data = JSON.parse(jsonString);
-      
-      // Extract headers and rows
-      const cols = data.table.cols.map(col => col.label || '');
-      const rows = data.table.rows.map(row => {
-        const obj = {};
-        row.c.forEach((cell, idx) => {
-          const header = cols[idx];
-          if (header) {
-            obj[header] = cell ? (cell.v !== null && cell.v !== undefined ? cell.v : (cell.f || '')) : '';
-          }
-        });
-        return obj;
-      });
+      let rows;
+      try {
+        rows = await fetchGoogleSheet(SPREADSHEET_ID, SHEET_NAME);
+      } catch (fetchError) {
+        console.error('Google Sheets fetch error:', fetchError);
+        return res.json([]); // Return empty array instead of crashing
+      }
 
       // Map to standard format
       let slipGaji = rows.map(row => ({

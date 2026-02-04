@@ -79,10 +79,16 @@ export default function HostLive() {
         fetch('/api/hostlive/hosts', { headers }),
         fetch('/api/staff?department_id=3', { headers })
       ]);
-      setHosts(await hostsRes.json());
-      setStaff(await staffRes.json());
+      
+      const hostsData = await hostsRes.json();
+      const staffData = await staffRes.json();
+      
+      setHosts(Array.isArray(hostsData) ? hostsData : []);
+      setStaff(Array.isArray(staffData) ? staffData : []);
     } catch (error) {
       console.error('Error:', error);
+      setHosts([]);
+      setStaff([]);
     } finally {
       setLoading(false);
     }
