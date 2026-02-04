@@ -99,18 +99,39 @@ export default function HostLive({ user }) {
   const handleAddHost = async (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
+    const staffId = formData.get('staff_id');
+    const targetHours = formData.get('monthly_target_hours');
+    
+    if (!staffId) {
+      alert('Pilih staff terlebih dahulu!');
+      return;
+    }
+    
     try {
       const token = localStorage.getItem('token');
       const res = await fetch('/api/hostlive/hosts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
-          staff_id: formData.get('staff_id'),
-          monthly_target_hours: parseFloat(formData.get('monthly_target_hours'))
+          staff_id: parseInt(staffId),
+          monthly_target_hours: parseFloat(targetHours) || 100
         })
       });
-      if (res.ok) { setShowAddHost(false); setEncourageMsg(getRandomEncourage()); fetchData(); }
-    } catch (error) { console.error('Error:', error); }
+      
+      const data = await res.json();
+      
+      if (res.ok) {
+        setShowAddHost(false);
+        setEncourageMsg(getRandomEncourage());
+        fetchData();
+        alert('Host berhasil ditambahkan! 🎉');
+      } else {
+        alert('Gagal menambahkan host: ' + (data.error || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Gagal menambahkan host: ' + error.message);
+    }
   };
 
   const handleEditHost = async (e) => {

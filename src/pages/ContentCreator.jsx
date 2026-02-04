@@ -75,6 +75,14 @@ export default function ContentCreator({ user }) {
   const handleAddCreator = async (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
+    const staffId = formData.get('staff_id');
+    const targetPosts = formData.get('monthly_target_posts');
+    const platforms = formData.get('platforms');
+    
+    if (!staffId) {
+      alert('Pilih staff terlebih dahulu!');
+      return;
+    }
     
     try {
       const token = localStorage.getItem('token');
@@ -85,19 +93,25 @@ export default function ContentCreator({ user }) {
           Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({
-          staff_id: formData.get('staff_id'),
-          monthly_target_posts: parseInt(formData.get('monthly_target_posts')),
-          platforms: formData.get('platforms')
+          staff_id: parseInt(staffId),
+          monthly_target_posts: parseInt(targetPosts) || 30,
+          platforms: platforms || 'Instagram'
         })
       });
+
+      const data = await response.json();
 
       if (response.ok) {
         setShowAddCreator(false);
         setEncourageMsg(getRandomEncourage());
         fetchData();
+        alert('Creator berhasil ditambahkan! 🎉');
+      } else {
+        alert('Gagal menambahkan creator: ' + (data.error || 'Unknown error'));
       }
     } catch (error) {
       console.error('Error adding creator:', error);
+      alert('Gagal menambahkan creator: ' + error.message);
     }
   };
 
