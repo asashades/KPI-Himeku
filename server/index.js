@@ -94,6 +94,18 @@ import('./routes/slipgaji.js').then(({ default: slipgajiRoutes }) => {
 // Serve static files from public folder
 app.use(express.static(join(__dirname, '../public')));
 
+// Serve frontend build (for production)
+app.use(express.static(join(__dirname, '../dist')));
+
+// Handle SPA routing - serve index.html for all non-API routes
+app.get('*', (req, res) => {
+  // Don't serve index.html for API routes
+  if (req.path.startsWith('/api')) {
+    return res.status(404).json({ error: 'API endpoint not found' });
+  }
+  res.sendFile(join(__dirname, '../dist/index.html'));
+});
+
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
