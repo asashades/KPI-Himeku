@@ -103,9 +103,11 @@ class DatabaseWrapper {
       try {
         await this.pool.query(pgSql);
       } catch (e) {
-        // Ignore "already exists" errors for ALTER TABLE
-        if (!e.message.includes('already exists') && !e.message.includes('duplicate')) {
-          console.error('SQL Error:', e.message);
+        // Ignore common "already exists" errors
+        const ignoredErrors = ['already exists', 'duplicate', 'does not exist', 'multiple primary keys'];
+        const shouldIgnore = ignoredErrors.some(err => e.message.toLowerCase().includes(err));
+        if (!shouldIgnore) {
+          console.error('SQL Error:', e.message, '\nSQL:', pgSql.substring(0, 200));
         }
       }
     } else {
@@ -127,8 +129,9 @@ class DatabaseWrapper {
       .replace(/INTEGER PRIMARY KEY/gi, 'SERIAL PRIMARY KEY')
       .replace(/DATETIME DEFAULT CURRENT_TIMESTAMP/gi, 'TIMESTAMP DEFAULT NOW()')
       .replace(/DATETIME/gi, 'TIMESTAMP')
-      .replace(/\bREAL\b/gi, 'DECIMAL')
-      .replace(/\bINTEGER\b(?!\s+PRIMARY)/gi, 'INTEGER');
+      .replace(/\bREAL\b/gi, 'NUMERIC')
+      .replace(/\bTEXT UNIQUE\b/gi, 'VARCHAR(255) UNIQUE')
+      .replace(/\bTEXT\b/gi, 'TEXT');
   }
 }
 
