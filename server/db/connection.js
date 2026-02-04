@@ -125,16 +125,21 @@ class DatabaseWrapper {
   // Convert SQLite placeholders (?) to PostgreSQL ($1, $2, etc)
   convertToPostgres(sql) {
     let index = 0;
-    // Also convert strftime to PostgreSQL equivalent
-    let converted = sql
-      .replace(/strftime\('%Y-%m', ([^)]+)\)/gi, "TO_CHAR($1::date, 'YYYY-MM')")
-      .replace(/strftime\('%Y', ([^)]+)\)/gi, "TO_CHAR($1::date, 'YYYY')")
-      .replace(/strftime\('%m', ([^)]+)\)/gi, "TO_CHAR($1::date, 'MM')")
-      .replace(/strftime\('%d', ([^)]+)\)/gi, "TO_CHAR($1::date, 'DD')")
-      .replace(/strftime\('%Y-%m', 'now'\)/gi, "TO_CHAR(NOW(), 'YYYY-MM')")
-      .replace(/strftime\("%Y-%m", ([^)]+)\)/gi, "TO_CHAR($1::date, 'YYYY-MM')");
-    
-    return converted.replace(/\?/g, () => `$${++index}`);
+    try {
+      // Also convert strftime to PostgreSQL equivalent
+      let converted = sql
+        .replace(/strftime\s*\(\s*'%Y-%m'\s*,\s*'now'\s*\)/gi, "TO_CHAR(NOW(), 'YYYY-MM')")
+        .replace(/strftime\s*\(\s*"%Y-%m"\s*,\s*([^)]+)\)/gi, "TO_CHAR(CAST($1 AS DATE), 'YYYY-MM')")
+        .replace(/strftime\s*\(\s*'%Y-%m'\s*,\s*([^)]+)\)/gi, "TO_CHAR(CAST($1 AS DATE), 'YYYY-MM')")
+        .replace(/strftime\s*\(\s*'%Y'\s*,\s*([^)]+)\)/gi, "TO_CHAR(CAST($1 AS DATE), 'YYYY')")
+        .replace(/strftime\s*\(\s*'%m'\s*,\s*([^)]+)\)/gi, "TO_CHAR(CAST($1 AS DATE), 'MM')")
+        .replace(/strftime\s*\(\s*'%d'\s*,\s*([^)]+)\)/gi, "TO_CHAR(CAST($1 AS DATE), 'DD')");
+      
+      return converted.replace(/\?/g, () => `$${++index}`);
+    } catch (e) {
+      console.error('SQL conversion error:', e);
+      return sql.replace(/\?/g, () => `$${++index}`);
+    }
   }
 
   // Convert SQLite schema to PostgreSQL
