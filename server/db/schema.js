@@ -1,8 +1,8 @@
 import bcrypt from 'bcryptjs';
 
-export function initializeDatabase(db) {
+export async function initializeDatabase(db) {
   // Users table
-  db.exec(`
+  await db.exec(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       username TEXT UNIQUE NOT NULL,
@@ -16,11 +16,11 @@ export function initializeDatabase(db) {
   `);
 
   // Add email and department_id columns if missing
-  try { db.exec(`ALTER TABLE users ADD COLUMN email TEXT`); } catch (e) {}
-  try { db.exec(`ALTER TABLE users ADD COLUMN department_id INTEGER`); } catch (e) {}
+  try { await db.exec(`ALTER TABLE users ADD COLUMN email TEXT`); } catch (e) {}
+  try { await db.exec(`ALTER TABLE users ADD COLUMN department_id INTEGER`); } catch (e) {}
 
   // Departments table
-  db.exec(`
+  await db.exec(`
     CREATE TABLE IF NOT EXISTS departments (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
@@ -31,7 +31,7 @@ export function initializeDatabase(db) {
   `);
 
   // Staff table - Extended with employee details
-  db.exec(`
+  await db.exec(`
     CREATE TABLE IF NOT EXISTS staff (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
@@ -46,35 +46,33 @@ export function initializeDatabase(db) {
       bank_account TEXT,
       city TEXT,
       active INTEGER DEFAULT 1,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (department_id) REFERENCES departments(id)
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
 
   // Add new columns to staff if missing
-  try { db.exec(`ALTER TABLE staff ADD COLUMN email TEXT`); } catch (e) {}
-  try { db.exec(`ALTER TABLE staff ADD COLUMN position TEXT`); } catch (e) {}
-  try { db.exec(`ALTER TABLE staff ADD COLUMN role TEXT DEFAULT 'Staff'`); } catch (e) {}
-  try { db.exec(`ALTER TABLE staff ADD COLUMN join_date DATE`); } catch (e) {}
-  try { db.exec(`ALTER TABLE staff ADD COLUMN phone TEXT`); } catch (e) {}
-  try { db.exec(`ALTER TABLE staff ADD COLUMN bank_name TEXT`); } catch (e) {}
-  try { db.exec(`ALTER TABLE staff ADD COLUMN bank_account TEXT`); } catch (e) {}
-  try { db.exec(`ALTER TABLE staff ADD COLUMN city TEXT`); } catch (e) {}
+  try { await db.exec(`ALTER TABLE staff ADD COLUMN email TEXT`); } catch (e) {}
+  try { await db.exec(`ALTER TABLE staff ADD COLUMN position TEXT`); } catch (e) {}
+  try { await db.exec(`ALTER TABLE staff ADD COLUMN role TEXT DEFAULT 'Staff'`); } catch (e) {}
+  try { await db.exec(`ALTER TABLE staff ADD COLUMN join_date DATE`); } catch (e) {}
+  try { await db.exec(`ALTER TABLE staff ADD COLUMN phone TEXT`); } catch (e) {}
+  try { await db.exec(`ALTER TABLE staff ADD COLUMN bank_name TEXT`); } catch (e) {}
+  try { await db.exec(`ALTER TABLE staff ADD COLUMN bank_account TEXT`); } catch (e) {}
+  try { await db.exec(`ALTER TABLE staff ADD COLUMN city TEXT`); } catch (e) {}
 
   // Host Live - Hosts and their targets
-  db.exec(`
+  await db.exec(`
     CREATE TABLE IF NOT EXISTS hosts (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       staff_id INTEGER NOT NULL,
       monthly_target_hours REAL DEFAULT 0,
       active INTEGER DEFAULT 1,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (staff_id) REFERENCES staff(id)
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
 
   // Host Live - Live sessions
-  db.exec(`
+  await db.exec(`
     CREATE TABLE IF NOT EXISTS live_sessions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       host_id INTEGER NOT NULL,
@@ -84,14 +82,12 @@ export function initializeDatabase(db) {
       duration_hours REAL NOT NULL,
       notes TEXT,
       created_by INTEGER,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (host_id) REFERENCES hosts(id),
-      FOREIGN KEY (created_by) REFERENCES users(id)
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
 
   // Checklist templates
-  db.exec(`
+  await db.exec(`
     CREATE TABLE IF NOT EXISTS checklist_templates (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       department_id INTEGER NOT NULL,
@@ -100,16 +96,15 @@ export function initializeDatabase(db) {
       items TEXT NOT NULL,
       tap_enabled INTEGER DEFAULT 1,
       active INTEGER DEFAULT 1,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (department_id) REFERENCES departments(id)
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
 
   // Add tap_enabled column if missing
-  try { db.exec(`ALTER TABLE checklist_templates ADD COLUMN tap_enabled INTEGER DEFAULT 1`); } catch (e) {}
+  try { await db.exec(`ALTER TABLE checklist_templates ADD COLUMN tap_enabled INTEGER DEFAULT 1`); } catch (e) {}
 
   // Warehouse checklists
-  db.exec(`
+  await db.exec(`
     CREATE TABLE IF NOT EXISTS warehouse_checklists (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       date DATE NOT NULL,
@@ -118,14 +113,12 @@ export function initializeDatabase(db) {
       completed_by INTEGER,
       completed_at DATETIME,
       status TEXT DEFAULT 'pending',
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (template_id) REFERENCES checklist_templates(id),
-      FOREIGN KEY (completed_by) REFERENCES users(id)
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
 
   // Crewstore opening checklists
-  db.exec(`
+  await db.exec(`
     CREATE TABLE IF NOT EXISTS crewstore_opening (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       date DATE NOT NULL,
@@ -135,13 +128,12 @@ export function initializeDatabase(db) {
       tap_notes TEXT,
       completed_by INTEGER,
       status TEXT DEFAULT 'pending',
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (completed_by) REFERENCES users(id)
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
 
   // Crewstore closing checklists
-  db.exec(`
+  await db.exec(`
     CREATE TABLE IF NOT EXISTS crewstore_closing (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       date DATE NOT NULL,
@@ -153,16 +145,15 @@ export function initializeDatabase(db) {
       daily_sales INTEGER DEFAULT 0,
       completed_by INTEGER,
       status TEXT DEFAULT 'pending',
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (completed_by) REFERENCES users(id)
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
 
   // Add daily_sales column if missing
-  try { db.exec(`ALTER TABLE crewstore_closing ADD COLUMN daily_sales INTEGER DEFAULT 0`); } catch (e) {}
+  try { await db.exec(`ALTER TABLE crewstore_closing ADD COLUMN daily_sales INTEGER DEFAULT 0`); } catch (e) {}
 
   // Presensi (Attendance) table
-  db.exec(`
+  await db.exec(`
     CREATE TABLE IF NOT EXISTS presensi (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL,
@@ -173,16 +164,15 @@ export function initializeDatabase(db) {
       latitude REAL,
       longitude REAL,
       late_minutes INTEGER DEFAULT 0,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (user_id) REFERENCES users(id)
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
 
   // Add late_minutes column if missing
-  try { db.exec(`ALTER TABLE presensi ADD COLUMN late_minutes INTEGER DEFAULT 0`); } catch (e) {}
+  try { await db.exec(`ALTER TABLE presensi ADD COLUMN late_minutes INTEGER DEFAULT 0`); } catch (e) {}
 
   // Warehouse Daily Reports table
-  db.exec(`
+  await db.exec(`
     CREATE TABLE IF NOT EXISTS warehouse_daily_reports (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       date DATE NOT NULL,
@@ -192,13 +182,12 @@ export function initializeDatabase(db) {
       pending TEXT,
       restock TEXT,
       created_by INTEGER,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (created_by) REFERENCES users(id)
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
 
   // Warehouse Wrong Orders table
-  db.exec(`
+  await db.exec(`
     CREATE TABLE IF NOT EXISTS warehouse_wrong_orders (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       date DATE NOT NULL,
@@ -210,14 +199,12 @@ export function initializeDatabase(db) {
       resolved_by INTEGER,
       resolution_notes TEXT,
       resolved_at DATETIME,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (reported_by) REFERENCES users(id),
-      FOREIGN KEY (resolved_by) REFERENCES users(id)
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
 
   // Content Creator KPI table
-  db.exec(`
+  await db.exec(`
     CREATE TABLE IF NOT EXISTS content_creators (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       staff_id INTEGER NOT NULL,
@@ -226,26 +213,17 @@ export function initializeDatabase(db) {
       monthly_target_engagement REAL DEFAULT 0,
       platforms TEXT,
       active INTEGER DEFAULT 1,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (staff_id) REFERENCES staff(id)
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
-  
-  // Add missing columns for content_creators if exists
-  try {
-    db.exec(`ALTER TABLE content_creators ADD COLUMN monthly_target_posts INTEGER DEFAULT 0`);
-  } catch (e) { /* column exists */ }
-  try {
-    db.exec(`ALTER TABLE content_creators ADD COLUMN platforms TEXT`);
-  } catch (e) { /* column exists */ }
 
-  // Add created_by column to host_live_imports if missing
-  try {
-    db.exec(`ALTER TABLE host_live_imports ADD COLUMN created_by INTEGER`);
-  } catch (e) { /* column exists */ }
+  // Add missing columns for content_creators if exists
+  try { await db.exec(`ALTER TABLE content_creators ADD COLUMN monthly_target_posts INTEGER DEFAULT 0`); } catch (e) {}
+  try { await db.exec(`ALTER TABLE content_creators ADD COLUMN platforms TEXT`); } catch (e) {}
+  try { await db.exec(`ALTER TABLE host_live_imports ADD COLUMN created_by INTEGER`); } catch (e) {}
 
   // Content Creator Posts/Content table
-  db.exec(`
+  await db.exec(`
     CREATE TABLE IF NOT EXISTS content_posts (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       creator_id INTEGER NOT NULL,
@@ -260,14 +238,12 @@ export function initializeDatabase(db) {
       shares INTEGER DEFAULT 0,
       notes TEXT,
       created_by INTEGER,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (creator_id) REFERENCES content_creators(id),
-      FOREIGN KEY (created_by) REFERENCES users(id)
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
 
   // Host Live Import Records table
-  db.exec(`
+  await db.exec(`
     CREATE TABLE IF NOT EXISTS host_live_imports (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       rekap_id TEXT UNIQUE,
@@ -279,46 +255,39 @@ export function initializeDatabase(db) {
       durasi_jam REAL NOT NULL,
       gaji INTEGER DEFAULT 0,
       host_id INTEGER,
-      imported_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (host_id) REFERENCES hosts(id)
+      imported_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
 
   // Department KPI Settings table
-  db.exec(`
+  await db.exec(`
     CREATE TABLE IF NOT EXISTS department_kpi_settings (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       department_id INTEGER NOT NULL UNIQUE,
       kpi_config TEXT NOT NULL,
       updated_by INTEGER,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (department_id) REFERENCES departments(id),
-      FOREIGN KEY (updated_by) REFERENCES users(id)
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
 
   // Insert default data
-  const departmentCount = db.prepare('SELECT COUNT(*) as count FROM departments').get();
+  const departmentCount = await db.get('SELECT COUNT(*) as count FROM departments');
   if (departmentCount.count === 0) {
-    db.exec(`
-      INSERT INTO departments (name, color, icon) VALUES
-      ('Crew Store', 'green', 'Store'),
-      ('Warehouse', 'blue', 'Package'),
-      ('Host Live', 'red', 'Video'),
-      ('Content Creator', 'pink', 'Instagram');
-    `);
+    await db.run(`INSERT INTO departments (name, color, icon) VALUES ('Crew Store', 'green', 'Store')`);
+    await db.run(`INSERT INTO departments (name, color, icon) VALUES ('Warehouse', 'blue', 'Package')`);
+    await db.run(`INSERT INTO departments (name, color, icon) VALUES ('Host Live', 'red', 'Video')`);
+    await db.run(`INSERT INTO departments (name, color, icon) VALUES ('Content Creator', 'pink', 'Instagram')`);
   }
 
   // Create default admin user if not exists
-  const adminExists = db.prepare('SELECT COUNT(*) as count FROM users WHERE username = ?').get('admin');
+  const adminExists = await db.get('SELECT COUNT(*) as count FROM users WHERE username = ?', ['admin']);
   if (adminExists.count === 0) {
     const hashedPassword = bcrypt.hashSync('admin123', 10);
-    db.prepare('INSERT INTO users (username, password, name, role) VALUES (?, ?, ?, ?)').run(
-      'admin', hashedPassword, 'Administrator', 'admin'
-    );
+    await db.run('INSERT INTO users (username, password, name, role) VALUES (?, ?, ?, ?)',
+      ['admin', hashedPassword, 'Administrator', 'admin']);
   }
 
-  // All employees data - will be used for both staff and user creation
+  // All employees data
   const employees = [
     { name: 'Ananda Raihan Faj', email: 'anandaraihanfaj@gmail.com', department_id: 3, position: 'Host Live', role: 'Staff', join_date: '2025-01-10', phone: '81234567890', bank_name: null, bank_account: null, city: 'Kota Surakarta', active: 1 },
     { name: 'Desas Noel Pitaloka', email: 'desasnoelp@gmail.com', department_id: 3, position: 'Host Live', role: 'Staff', join_date: '2023-06-01', phone: '81298765432', bank_name: 'BRI', bank_account: '310301035113532', city: 'Kota Surakarta', active: 0 },
@@ -343,60 +312,58 @@ export function initializeDatabase(db) {
     { name: 'Akbar Maulana Rifki', email: 'akbarmaulanarifki@gmail.com', department_id: 3, position: 'Host Live', role: 'Staff', join_date: '2026-01-13', phone: null, bank_name: 'Bank Jago', bank_account: '103993530192', city: 'Kota Surakarta', active: 1 }
   ];
 
-  // Helper function to create username from name (first name lowercase)
+  // Helper function to create username from name
   const createUsername = (name) => {
     const firstName = name.split(' ')[0];
     return firstName.charAt(0).toUpperCase() + firstName.slice(1).toLowerCase();
   };
 
   // Create user accounts for all employees
-  employees.forEach(e => {
+  for (const e of employees) {
     const username = createUsername(e.name);
-    const password = username + '123'; // Password = Username + 123
-    const exists = db.prepare('SELECT COUNT(*) as count FROM users WHERE email = ?').get(e.email);
+    const password = username + '123';
+    const exists = await db.get('SELECT COUNT(*) as count FROM users WHERE email = ?', [e.email]);
     if (exists.count === 0) {
       const hashed = bcrypt.hashSync(password, 10);
-      db.prepare('INSERT INTO users (username, password, name, email, role, department_id) VALUES (?, ?, ?, ?, ?, ?)')
-        .run(username, hashed, e.name, e.email, 'staff', e.department_id);
+      await db.run('INSERT INTO users (username, password, name, email, role, department_id) VALUES (?, ?, ?, ?, ?, ?)',
+        [username, hashed, e.name, e.email, 'staff', e.department_id]);
     }
-  });
+  }
 
   // Seed employees data to staff table
-  const staffCount = db.prepare('SELECT COUNT(*) as count FROM staff').get();
+  const staffCount = await db.get('SELECT COUNT(*) as count FROM staff');
   if (staffCount.count === 0) {
-    const insertStaff = db.prepare(`
-      INSERT INTO staff (name, email, department_id, position, role, join_date, phone, bank_name, bank_account, city, active)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    employees.forEach(e => {
-      insertStaff.run(e.name, e.email, e.department_id, e.position, e.role, e.join_date, e.phone, e.bank_name, e.bank_account, e.city, e.active);
-    });
+    for (const e of employees) {
+      await db.run(`
+        INSERT INTO staff (name, email, department_id, position, role, join_date, phone, bank_name, bank_account, city, active)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `, [e.name, e.email, e.department_id, e.position, e.role, e.join_date, e.phone, e.bank_name, e.bank_account, e.city, e.active]);
+    }
   }
 
   // Insert default checklist templates if not exists
-  const templateCount = db.prepare('SELECT COUNT(*) as count FROM checklist_templates').get();
+  const templateCount = await db.get('SELECT COUNT(*) as count FROM checklist_templates');
   if (templateCount.count === 0) {
-    db.exec(`
-      INSERT INTO checklist_templates (department_id, name, type, items) VALUES
-      (2, 'Default Warehouse Checklist', 'daily', '${JSON.stringify([
+    await db.run(`INSERT INTO checklist_templates (department_id, name, type, items) VALUES (?, ?, ?, ?)`,
+      [2, 'Default Warehouse Checklist', 'daily', JSON.stringify([
         { id: 1, text: 'Cek stok barang', required: true },
         { id: 2, text: 'Verifikasi pesanan masuk', required: true },
         { id: 3, text: 'Packing barang ready', required: true },
         { id: 4, text: 'Update inventory', required: false }
-      ])}'),
-      (1, 'Crewstore Opening', 'opening', '${JSON.stringify([
+      ])]);
+    await db.run(`INSERT INTO checklist_templates (department_id, name, type, items) VALUES (?, ?, ?, ?)`,
+      [1, 'Crewstore Opening', 'opening', JSON.stringify([
         { id: 1, text: 'Nyapu lantai', required: true },
         { id: 2, text: 'Ngepel', required: true },
         { id: 3, text: 'Lap kaca', required: true },
         { id: 4, text: 'Cek kasir', required: true }
-      ])}'),
-      (1, 'Crewstore Closing', 'closing', '${JSON.stringify([
+      ])]);
+    await db.run(`INSERT INTO checklist_templates (department_id, name, type, items) VALUES (?, ?, ?, ?)`,
+      [1, 'Crewstore Closing', 'closing', JSON.stringify([
         { id: 1, text: 'Hitung kas', required: true },
         { id: 2, text: 'Bersihkan kasir', required: true },
         { id: 3, text: 'Rapikan display', required: true },
         { id: 4, text: 'Matikan lampu', required: true }
-      ])}');
-    `);
+      ])]);
   }
 }

@@ -2,10 +2,9 @@ import express from 'express';
 import cors from 'cors';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { existsSync, mkdirSync } from 'fs';
-import Database from 'better-sqlite3';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import db from './db/connection.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -14,26 +13,10 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 const JWT_SECRET = process.env.JWT_SECRET || 'himeku-secret-key-change-in-production';
 
-// Database path - use /tmp for Railway (ephemeral but works for testing)
-const dbPath = process.env.NODE_ENV === 'production' 
-  ? '/tmp/database.db' 
-  : join(__dirname, '../database.db');
-
-console.log('Database path:', dbPath);
-
-// Initialize database
-const db = new Database(dbPath);
-db.pragma('journal_mode = WAL');
-
 // Middleware
 app.use(cors());
-app.use(express.json());
-
-// Initialize database schema
-import('./db/schema.js').then(({ initializeDatabase }) => {
-  initializeDatabase(db);
-  console.log('Database initialized');
-});
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Auth middleware
 const authenticate = (req, res, next) => {
@@ -50,77 +33,84 @@ const authenticate = (req, res, next) => {
   }
 };
 
-// Routes
-import('./routes/auth.js').then(({ default: authRoutes }) => {
-  app.use('/api/auth', authRoutes(db, JWT_SECRET));
-});
+// Initialize database and start server
+async function startServer() {
+  try {
+    // Connect to database
+    await db.connect();
 
-import('./routes/departments.js').then(({ default: departmentRoutes }) => {
-  app.use('/api/departments', authenticate, departmentRoutes(db));
-});
+    // Initialize schema
+    const { initializeDatabase } = await import('./db/schema.js');
+    await initializeDatabase(db);
+    console.log('Database schema initialized');
 
-import('./routes/hostlive.js').then(({ default: hostliveRoutes }) => {
-  app.use('/api/hostlive', authenticate, hostliveRoutes(db));
-});
+    // Routes
+    const { default: authRoutes } = await import('./routes/auth.js');
+    app.use('/api/auth', authRoutes(db, JWT_SECRET));
 
-import('./routes/warehouse.js').then(({ default: warehouseRoutes }) => {
-  app.use('/api/warehouse', authenticate, warehouseRoutes(db));
-});
+    const { default: departmentRoutes } = await import('./routes/departments.js');
+    app.use('/api/departments', authenticate, departmentRoutes(db));
 
-import('./routes/crewstore.js').then(({ default: crewstoreRoutes }) => {
-  app.use('/api/crewstore', authenticate, crewstoreRoutes(db));
-});
+    const { default: hostliveRoutes } = await import('./routes/hostlive.js');
+    app.use('/api/hostlive', authenticate, hostliveRoutes(db));
 
-import('./routes/staff.js').then(({ default: staffRoutes }) => {
-  app.use('/api/staff', authenticate, staffRoutes(db));
-});
+    const { default: warehouseRoutes } = await import('./routes/warehouse.js');
+    app.use('/api/warehouse', authenticate, warehouseRoutes(db));
 
-import('./routes/templates.js').then(({ default: templateRoutes }) => {
-  app.use('/api/templates', authenticate, templateRoutes(db));
-});
+    const { default: crewstoreRoutes } = await import('./routes/crewstore.js');
+    app.use('/api/crewstore', authenticate, crewstoreRoutes(db));
 
-import('./routes/dashboard.js').then(({ default: dashboardRoutes }) => {
-  app.use('/api/dashboard', authenticate, dashboardRoutes(db));
-});
+    const { default: staffRoutes } = await import('./routes/staff.js');
+    app.use('/api/staff', authenticate, staffRoutes(db));
 
-import('./routes/reports.js').then(({ default: reportRoutes }) => {
-  app.use('/api/reports', authenticate, reportRoutes(db));
-});
+    const { default: templateRoutes } = await import('./routes/templates.js');
+    app.use('/api/templates', authenticate, templateRoutes(db));
 
-import('./routes/presensi.js').then(({ default: presensiRoutes }) => {
-  app.use('/api/presensi', authenticate, presensiRoutes(db));
-});
+    const { default: dashboardRoutes } = await import('./routes/dashboard.js');
+    app.use('/api/dashboard', authenticate, dashboardRoutes(db));
 
-import('./routes/contentcreator.js').then(({ default: contentcreatorRoutes }) => {
-  app.use('/api/contentcreator', authenticate, contentcreatorRoutes(db));
-});
+    const { default: reportRoutes } = await import('./routes/reports.js');
+    app.use('/api/reports', authenticate, reportRoutes(db));
 
-import('./routes/slipgaji.js').then(({ default: slipgajiRoutes }) => {
-  app.use('/api/slipgaji', authenticate, slipgajiRoutes(db));
-});
+    const { default: presensiRoutes } = await import('./routes/presensi.js');
+    app.use('/api/presensi', authenticate, presensiRoutes(db));
 
-// Serve static files from public folder
-app.use(express.static(join(__dirname, '../public')));
+    const { default: contentcreatorRoutes } = await import('./routes/contentcreator.js');
+    app.use('/api/contentcreator', authenticate, contentcreatorRoutes(db));
 
-// Serve frontend build (for production)
-const distPath = join(__dirname, '../dist');
-app.use(express.static(distPath));
+    const { default: slipgajiRoutes } = await import('./routes/slipgaji.js');
+    app.use('/api/slipgaji', authenticate, slipgajiRoutes(db));
 
-// Handle SPA routing - serve index.html for all non-API routes
-app.get('*', (req, res) => {
-  // Don't serve index.html for API routes
-  if (req.path.startsWith('/api')) {
-    return res.status(404).json({ error: 'API endpoint not found' });
+    // Serve static files from public folder
+    app.use(express.static(join(__dirname, '../public')));
+
+    // Serve frontend build (for production)
+    const distPath = join(__dirname, '../dist');
+    app.use(express.static(distPath));
+
+    // Handle SPA routing - serve index.html for all non-API routes
+    app.get('*', (req, res) => {
+      if (req.path.startsWith('/api')) {
+        return res.status(404).json({ error: 'API endpoint not found' });
+      }
+      const indexPath = join(distPath, 'index.html');
+      res.sendFile(indexPath, (err) => {
+        if (err) {
+          console.error('Error serving index.html:', err);
+          res.status(500).send('Application not built. Please run npm run build first.');
+        }
+      });
+    });
+
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+      console.log(`Database: ${process.env.DATABASE_URL ? 'PostgreSQL (Supabase)' : 'SQLite (local)'}`);
+    });
+
+  } catch (error) {
+    console.error('Failed to start server:', error);
+    process.exit(1);
   }
-  const indexPath = join(distPath, 'index.html');
-  res.sendFile(indexPath, (err) => {
-    if (err) {
-      console.error('Error serving index.html:', err);
-      res.status(500).send('Application not built. Please run npm run build first.');
-    }
-  });
-});
+}
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+startServer();
