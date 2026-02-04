@@ -16,11 +16,13 @@ const encourageMessages = [
 
 const getRandomEncourage = () => encourageMessages[Math.floor(Math.random() * encourageMessages.length)];
 
-export default function HostLive() {
+export default function HostLive({ user }) {
   const [hosts, setHosts] = useState([]);
   const [staff, setStaff] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddHost, setShowAddHost] = useState(false);
+  
+  const isAdmin = user?.role === 'admin';
   const [showAddSession, setShowAddSession] = useState(false);
   const [showEditHost, setShowEditHost] = useState(false);
   const [selectedHost, setSelectedHost] = useState(null);
@@ -175,9 +177,11 @@ export default function HostLive() {
           </h1>
           <p className="text-gray-600 mt-1">Tracking jam tayang host - Let's go viral! 🚀</p>
         </div>
-        <button onClick={() => setShowAddHost(true)} className="btn btn-primary flex items-center gap-2">
-          <Plus size={20} /> Tambah Host
-        </button>
+        {isAdmin && (
+          <button onClick={() => setShowAddHost(true)} className="btn btn-primary flex items-center gap-2">
+            <Plus size={20} /> Tambah Host
+          </button>
+        )}
       </div>
 
       <div className="bg-gradient-to-r from-red-500 via-pink-500 to-purple-500 rounded-xl p-4 text-white shadow-lg">
@@ -222,13 +226,15 @@ export default function HostLive() {
                     </div>
                     <div className="text-right">
                       <div className="text-2xl font-bold text-red-600">{progress.toFixed(1)}%</div>
-                      <div className="flex gap-1 mt-1">
-                        <button onClick={() => { setSelectedHost(host); setShowAddSession(true); }} className="text-xs text-blue-600 hover:underline">+ Jam</button>
-                        <span className="text-gray-300">|</span>
-                        <button onClick={() => { setEditingHost(host); setShowEditHost(true); }} className="text-xs text-green-600 hover:underline">Edit</button>
-                        <span className="text-gray-300">|</span>
-                        <button onClick={() => handleDeleteHost(host.id)} className="text-xs text-red-600 hover:underline">Hapus</button>
-                      </div>
+                      {isAdmin && (
+                        <div className="flex gap-1 mt-1">
+                          <button onClick={() => { setSelectedHost(host); setShowAddSession(true); }} className="text-xs text-blue-600 hover:underline">+ Jam</button>
+                          <span className="text-gray-300">|</span>
+                          <button onClick={() => { setEditingHost(host); setShowEditHost(true); }} className="text-xs text-green-600 hover:underline">Edit</button>
+                          <span className="text-gray-300">|</span>
+                          <button onClick={() => handleDeleteHost(host.id)} className="text-xs text-red-600 hover:underline">Hapus</button>
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2">

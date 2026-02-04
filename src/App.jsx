@@ -60,7 +60,7 @@ function App() {
       <Layout user={user} onLogout={handleLogout}>
         <Routes>
           <Route path="/" element={<Dashboard />} />
-          <Route path="/hostlive" element={<HostLive />} />
+          <Route path="/hostlive" element={<HostLive user={user} />} />
           <Route path="/warehouse" element={<Warehouse />} />
           <Route path="/crewstore" element={<Crewstore />} />
           <Route path="/contentcreator" element={<ContentCreator user={user} />} />
