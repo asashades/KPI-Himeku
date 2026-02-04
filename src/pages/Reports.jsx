@@ -80,9 +80,9 @@ export default function Reports() {
               className="input"
             >
               <option value="">Semua Departemen</option>
-              <option value="1">Host Live</option>
+              <option value="3">Host Live</option>
               <option value="2">Warehouse</option>
-              <option value="3">Crewstore</option>
+              <option value="1">Crewstore</option>
             </select>
           </div>
 

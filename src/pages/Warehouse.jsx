@@ -16,6 +16,19 @@ const encourageMessages = [
 
 const getRandomEncourage = () => encourageMessages[Math.floor(Math.random() * encourageMessages.length)];
 
+// Format ISO date to Indonesian locale
+const formatDate = (dateStr) => {
+  if (!dateStr) return '-';
+  const date = new Date(dateStr);
+  return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+};
+
+// Get just the date part from ISO string for comparison
+const getDateOnly = (dateStr) => {
+  if (!dateStr) return '';
+  return dateStr.split('T')[0];
+};
+
 export default function Warehouse() {
   const [checklists, setChecklists] = useState([]);
   const [templates, setTemplates] = useState([]);
@@ -170,9 +183,9 @@ export default function Warehouse() {
     } catch (error) { console.error('Error:', error); }
   };
 
-  const todayReport = dailyReports.find(r => r.date === today);
-  const todayWrongOrders = wrongOrders.filter(w => w.date === today);
-  const monthWrongOrders = wrongOrders.filter(w => w.date?.startsWith(new Date().toISOString().slice(0, 7)));
+  const todayReport = dailyReports.find(r => getDateOnly(r.date) === today);
+  const todayWrongOrders = wrongOrders.filter(w => getDateOnly(w.date) === today);
+  const monthWrongOrders = wrongOrders.filter(w => getDateOnly(w.date)?.startsWith(new Date().toISOString().slice(0, 7)));
 
   if (loading) {
     return (
@@ -335,7 +348,7 @@ export default function Warehouse() {
             <tbody className="divide-y">
               {dailyReports.slice(0, 10).map(report => (
                 <tr key={report.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3">{report.date}</td>
+                  <td className="px-4 py-3">{formatDate(report.date)}</td>
                   <td className="px-4 py-3 font-bold text-orange-600">{report.spx}</td>
                   <td className="px-4 py-3 font-bold text-red-600">{report.jnt}</td>
                   <td className="px-4 py-3 font-bold text-green-600">{report.total_kiriman}</td>
@@ -371,7 +384,7 @@ export default function Warehouse() {
             <tbody className="divide-y">
               {wrongOrders.slice(0, 20).map(wo => (
                 <tr key={wo.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3">{wo.date}</td>
+                  <td className="px-4 py-3">{formatDate(wo.date)}</td>
                   <td className="px-4 py-3 font-mono text-sm">{wo.order_id}</td>
                   <td className="px-4 py-3">
                     <span className={`px-2 py-1 rounded-full text-xs ${

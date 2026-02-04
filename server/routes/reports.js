@@ -10,7 +10,7 @@ export default function (db) {
       const reports = {};
 
       // Host Live Report
-      if (!department || department === '1') {
+      if (!department || department === '3') {
         const hostReport = await db.all(`
           SELECT 
             s.name as host_name,
@@ -47,7 +47,7 @@ export default function (db) {
       }
 
       // Crewstore Report
-      if (!department || department === '3') {
+      if (!department || department === '1') {
         const crewstoreReport = await db.all(`
           SELECT 
             date,
@@ -93,7 +93,7 @@ export default function (db) {
       text += `${'='.repeat(50)}\n\n`;
 
       // Host Live
-      if (!department || department === '1') {
+      if (!department || department === '3') {
         text += `📺 HOST LIVE\n`;
         text += `${'-'.repeat(50)}\n`;
         
@@ -147,7 +147,7 @@ export default function (db) {
       }
 
       // Crewstore
-      if (!department || department === '3') {
+      if (!department || department === '1') {
         text += `🏪 CREWSTORE\n`;
         text += `${'-'.repeat(50)}\n`;
         

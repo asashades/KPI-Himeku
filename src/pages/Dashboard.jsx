@@ -16,6 +16,7 @@ export default function Dashboard() {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await response.json();
+      console.log('Dashboard data:', data); // Debug log
       setOverview(data);
     } catch (error) {
       console.error('Error fetching overview:', error);
@@ -27,7 +28,16 @@ export default function Dashboard() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500">Memuat data...</div>
+        <div className="animate-spin w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full"></div>
+      </div>
+    );
+  }
+
+  // Handle error state
+  if (!overview) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-red-500">Gagal memuat data dashboard</div>
       </div>
     );
   }
