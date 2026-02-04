@@ -13,12 +13,14 @@ import {
   Camera,
   Instagram,
   Receipt,
-  ClipboardList
+  ClipboardList,
+  MoreHorizontal
 } from 'lucide-react';
 
 export default function Layout({ children, user, onLogout }) {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
 
   const isAdmin = user?.role === 'admin';
   const userDeptId = user?.department_id;
@@ -58,32 +60,20 @@ export default function Layout({ children, user, onLogout }) {
     navigation = [...navigation, ...departmentMenus[userDeptId]];
   }
 
+  // For mobile bottom bar: show max 4 items + "More" if needed
+  const mobileMainMenus = navigation.slice(0, 4);
+  const mobileMoreMenus = navigation.slice(4);
+
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Mobile menu button */}
-      <div className="lg:hidden fixed top-4 left-4 z-50">
-        <button
-          onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="p-2 bg-white rounded-lg shadow-md"
-        >
-          {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
-        </button>
-      </div>
-
-      {/* Sidebar */}
-      <aside
-        className={`
-          fixed top-0 left-0 h-screen w-64 bg-white shadow-lg z-40 transform transition-transform duration-300
-          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-          lg:translate-x-0
-        `}
-      >
+      {/* Desktop Sidebar */}
+      <aside className="hidden lg:block fixed top-0 left-0 h-screen w-64 bg-white shadow-lg z-40">
         <div className="p-6">
           <h1 className="text-2xl font-bold text-gray-800">KPI Himeku</h1>
           <p className="text-sm text-gray-500 mt-1">Tracker Performa</p>
         </div>
 
-        <nav className="px-4 space-y-1">
+        <nav className="px-4 space-y-1 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 200px)' }}>
           {navigation.map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.path;
@@ -91,7 +81,6 @@ export default function Layout({ children, user, onLogout }) {
               <Link
                 key={item.path}
                 to={item.path}
-                onClick={() => setSidebarOpen(false)}
                 className={`
                   flex items-center gap-3 px-4 py-3 rounded-lg transition-colors
                   ${isActive 
@@ -107,7 +96,7 @@ export default function Layout({ children, user, onLogout }) {
           })}
         </nav>
 
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t">
+        <div className="absolute bottom-0 left-0 right-0 p-4 border-t bg-white">
           <div className="flex items-center gap-3 mb-3">
             <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold">
               {user?.name?.charAt(0).toUpperCase()}
@@ -127,20 +116,96 @@ export default function Layout({ children, user, onLogout }) {
         </div>
       </aside>
 
+      {/* Mobile Header */}
+      <header className="lg:hidden fixed top-0 left-0 right-0 h-14 bg-white shadow-sm z-40 flex items-center justify-between px-4">
+        <h1 className="text-lg font-bold text-gray-800">KPI Himeku</h1>
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-gray-600">{user?.name?.split(' ')[0]}</span>
+          <button
+            onClick={onLogout}
+            className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
+          >
+            <LogOut size={18} />
+          </button>
+        </div>
+      </header>
+
       {/* Main content */}
-      <main className="lg:ml-64 min-h-screen">
-        <div className="p-6 lg:p-8">
+      <main className="lg:ml-64 min-h-screen pt-14 pb-20 lg:pt-0 lg:pb-0">
+        <div className="p-4 lg:p-8">
           {children}
         </div>
       </main>
 
-      {/* Overlay for mobile */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-30 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
+      {/* Mobile Bottom Navigation Bar */}
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg z-40">
+        <div className="flex items-center justify-around h-16">
+          {mobileMainMenus.map((item) => {
+            const Icon = item.icon;
+            const isActive = location.pathname === item.path;
+            return (
+              <Link
+                key={item.path}
+                to={item.path}
+                className={`flex flex-col items-center justify-center flex-1 h-full transition-colors ${
+                  isActive ? 'text-blue-600' : 'text-gray-500'
+                }`}
+              >
+                <Icon size={22} />
+                <span className="text-[10px] mt-1 font-medium">{item.name}</span>
+              </Link>
+            );
+          })}
+          
+          {/* More button if there are additional menus */}
+          {mobileMoreMenus.length > 0 && (
+            <div className="relative flex-1 h-full">
+              <button
+                onClick={() => setShowMoreMenu(!showMoreMenu)}
+                className={`flex flex-col items-center justify-center w-full h-full transition-colors ${
+                  showMoreMenu || mobileMoreMenus.some(m => m.path === location.pathname) 
+                    ? 'text-blue-600' 
+                    : 'text-gray-500'
+                }`}
+              >
+                <MoreHorizontal size={22} />
+                <span className="text-[10px] mt-1 font-medium">Lainnya</span>
+              </button>
+
+              {/* More menu popup */}
+              {showMoreMenu && (
+                <>
+                  <div 
+                    className="fixed inset-0 z-40" 
+                    onClick={() => setShowMoreMenu(false)}
+                  />
+                  <div className="absolute bottom-full right-0 mb-2 w-48 bg-white rounded-lg shadow-xl border z-50 py-2 max-h-64 overflow-y-auto">
+                    {mobileMoreMenus.map((item) => {
+                      const Icon = item.icon;
+                      const isActive = location.pathname === item.path;
+                      return (
+                        <Link
+                          key={item.path}
+                          to={item.path}
+                          onClick={() => setShowMoreMenu(false)}
+                          className={`flex items-center gap-3 px-4 py-3 transition-colors ${
+                            isActive 
+                              ? 'bg-blue-50 text-blue-600' 
+                              : 'text-gray-700 hover:bg-gray-50'
+                          }`}
+                        >
+                          <Icon size={18} />
+                          <span className="text-sm font-medium">{item.name}</span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      </nav>
     </div>
   );
 }

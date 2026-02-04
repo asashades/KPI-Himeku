@@ -7,6 +7,40 @@ export default function (db) {
   const SPREADSHEET_ID = '1FiTL5F7M5s6VFqDq4c4EghEembfV7oLMVmAXINAMEww';
   const SHEET_NAME = 'RekapLive';
 
+  // Helper function to parse Google Sheets date format
+  function parseGoogleDate(value) {
+    if (!value) return '';
+    
+    // Check if it's a Google Date string like "Date(2026,0,29)"
+    const dateMatch = String(value).match(/Date\((\d+),(\d+),(\d+)\)/);
+    if (dateMatch) {
+      const year = parseInt(dateMatch[1]);
+      const month = parseInt(dateMatch[2]); // 0-indexed
+      const day = parseInt(dateMatch[3]);
+      const date = new Date(year, month, day);
+      return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+    }
+    
+    // Return as-is if already formatted
+    return value;
+  }
+
+  // Helper function to parse Google Sheets time format
+  function parseGoogleTime(value) {
+    if (!value) return '';
+    
+    // Check if it's a Google Date/Time string like "Date(1899,11,30,13,0,0)"
+    const timeMatch = String(value).match(/Date\(\d+,\d+,\d+,(\d+),(\d+),?(\d*)\)/);
+    if (timeMatch) {
+      const hours = parseInt(timeMatch[1]).toString().padStart(2, '0');
+      const minutes = parseInt(timeMatch[2]).toString().padStart(2, '0');
+      return `${hours}:${minutes}`;
+    }
+    
+    // Return as-is if already formatted
+    return value;
+  }
+
   // Helper function to fetch from Google Sheets
   async function fetchGoogleSheet(spreadsheetId, sheetName) {
     const url = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetName)}`;
@@ -29,7 +63,8 @@ export default function (db) {
       row.c.forEach((cell, idx) => {
         const header = cols[idx];
         if (header) {
-          obj[header] = cell ? (cell.v !== null && cell.v !== undefined ? cell.v : (cell.f || '')) : '';
+          // Use formatted value (f) first if available, else use raw value (v)
+          obj[header] = cell ? (cell.f || cell.v || '') : '';
         }
       });
       return obj;
@@ -69,15 +104,20 @@ export default function (db) {
         const staffName = emailHost ? staffMap[emailHost.toLowerCase()] : null;
         const displayName = staffName || row['NamaHost'] || 'Unknown';
         
+        // Parse date and time values from Google Sheets format
+        const tanggalLive = parseGoogleDate(row['TanggalLive']);
+        const jamMulai = parseGoogleTime(row['JamMulai']);
+        const jamSelesai = parseGoogleTime(row['JamSelesai']);
+        
         return {
           RekapID: row['RekapID'] || '',
           EmailHost: emailHost,
           NamaHost: displayName,
-          TanggalLive: row['TanggalLive'] || '',
-          JamMulai: row['JamMulai'] || '',
-          JamSelesai: row['JamSelesai'] || '',
+          TanggalLive: tanggalLive,
+          JamMulai: jamMulai,
+          JamSelesai: jamSelesai,
           DurasiJam: parseFloat(row['DurasiJam']) || 0,
-          Gaji: parseInt(row['Gaji']) || 0,
+          Gaji: parseInt(String(row['Gaji']).replace(/[^\d]/g, '')) || 0,
           FotoBuktiURL: row['FotoBuktiURL'] || '',
           SubmitAt: row['SubmitAt'] || ''
         };

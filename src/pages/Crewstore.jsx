@@ -1,5 +1,20 @@
 import { useState, useEffect } from 'react';
-import { Sun, Moon, Plus, CheckCircle, PlusCircle, X, DollarSign, Droplet, Edit2, History, Calendar, Search, ChevronDown, ChevronUp, User } from 'lucide-react';
+import { Sun, Moon, Plus, CheckCircle, PlusCircle, X, DollarSign, Droplet, Edit2, History, Calendar, Search, ChevronDown, ChevronUp, User, Sparkles } from 'lucide-react';
+
+const encourageMessages = [
+  "Crewstore vibes lagi on fire! 🔥",
+  "Keep slaying bestie, toko makin rame! ✨",
+  "Opening checklist? Ate and left no crumbs! 💅",
+  "Main character energy at the store! 👑",
+  "Closing smooth? That's the spirit! 🌙",
+  "Sales goals unlocked, ur literally iconic! 💰",
+  "No cap, tim crewstore emang the best! 🏆",
+  "Slay queen/king of retail! 🛍️",
+  "Era produktif kamu lagi peak fr fr! 📈",
+  "Living rent-free in the leaderboard! 😌"
+];
+
+const getRandomEncourage = () => encourageMessages[Math.floor(Math.random() * encourageMessages.length)];
 
 export default function Crewstore() {
   const [todayStatus, setTodayStatus] = useState(null);
@@ -14,6 +29,7 @@ export default function Crewstore() {
   const [editingClosing, setEditingClosing] = useState(false);
   const [staffList, setStaffList] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
+  const [encourageMsg, setEncourageMsg] = useState(getRandomEncourage());
   // History state
   const [showHistory, setShowHistory] = useState(false);
   const [history, setHistory] = useState([]);
@@ -280,6 +296,19 @@ export default function Crewstore() {
 
   return (
     <div className="space-y-6">
+      {/* Encourage Banner */}
+      <div className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl p-4 text-white shadow-lg">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-white/20 rounded-lg">
+            <Sparkles className="text-yellow-300" size={24} />
+          </div>
+          <div>
+            <p className="text-lg font-bold">{encourageMsg}</p>
+            <p className="text-sm text-green-100">Tim Crewstore selalu semangat! 💪</p>
+          </div>
+        </div>
+      </div>
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-800">Crewstore</h1>
