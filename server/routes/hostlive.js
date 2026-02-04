@@ -229,7 +229,9 @@ export default function (db) {
       // Get current month start and end dates
       const now = new Date();
       const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
-      const monthEnd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-31`;
+      // Get last day of current month (works for all months including Feb)
+      const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      const monthEnd = lastDay.toISOString().split('T')[0];
       
       const hosts = await db.all(`
         SELECT h.*, s.name, s.photo_url,
@@ -267,7 +269,9 @@ export default function (db) {
       // Get sessions for current month
       const now = new Date();
       const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
-      const monthEnd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-31`;
+      // Get last day of current month (works for all months including Feb)
+      const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      const monthEnd = lastDay.toISOString().split('T')[0];
       
       const sessions = await db.all(`
         SELECT * FROM live_sessions 

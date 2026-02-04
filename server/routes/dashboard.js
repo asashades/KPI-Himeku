@@ -20,7 +20,10 @@ export default function (db) {
       const today = new Date().toISOString().split('T')[0];
       const currentMonth = new Date().toISOString().slice(0, 7);
       const monthStart = currentMonth + '-01';
-      const monthEnd = currentMonth + '-31';
+      // Get last day of current month (works for all months including Feb)
+      const now = new Date();
+      const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      const monthEnd = lastDay.toISOString().split('T')[0];
 
       // Get KPI targets from settings
       const hostLiveKpi = await getKpiTarget(3); // Host Live = dept 3
