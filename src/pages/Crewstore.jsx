@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Sun, Moon, Plus, CheckCircle, PlusCircle, X, DollarSign, Droplet, Edit2 } from 'lucide-react';
+import { Sun, Moon, Plus, CheckCircle, PlusCircle, X, DollarSign, Droplet, Edit2, History, Calendar, Search, ChevronDown, ChevronUp, User } from 'lucide-react';
 
 export default function Crewstore() {
   const [todayStatus, setTodayStatus] = useState(null);
@@ -14,6 +14,13 @@ export default function Crewstore() {
   const [editingClosing, setEditingClosing] = useState(false);
   const [staffList, setStaffList] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
+  // History state
+  const [showHistory, setShowHistory] = useState(false);
+  const [history, setHistory] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyStartDate, setHistoryStartDate] = useState('');
+  const [historyEndDate, setHistoryEndDate] = useState('');
+  const [expandedHistoryItem, setExpandedHistoryItem] = useState(null);
 
   useEffect(() => {
     fetchData();
@@ -25,7 +32,34 @@ export default function Crewstore() {
         setCurrentUser(payload);
       } catch (e) {}
     }
+    // Set default history dates
+    const now = new Date();
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+    setHistoryStartDate(firstDay.toISOString().split('T')[0]);
+    setHistoryEndDate(now.toISOString().split('T')[0]);
   }, []);
+
+  const fetchHistory = async () => {
+    setHistoryLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`/api/crewstore/history?startDate=${historyStartDate}&endDate=${historyEndDate}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      setHistory(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Error fetching history:', error);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (showHistory && historyStartDate && historyEndDate) {
+      fetchHistory();
+    }
+  }, [showHistory, historyStartDate, historyEndDate]);
 
   const fetchData = async () => {
     try {
@@ -231,16 +265,215 @@ export default function Crewstore() {
     return total > 0 ? Math.round((checked / total) * 100) : 0;
   };
 
+  const formatDate = (dateStr) => {
+    return new Date(dateStr).toLocaleDateString('id-ID', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    });
+  };
+
   if (loading) {
     return <div className="flex items-center justify-center h-64">Memuat data...</div>;
   }
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-800">Crewstore</h1>
-        <p className="text-gray-600 mt-1">Checklist Opening & Closing toko</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-800">Crewstore</h1>
+          <p className="text-gray-600 mt-1">Checklist Opening & Closing toko</p>
+        </div>
+        <button
+          onClick={() => setShowHistory(!showHistory)}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+            showHistory 
+              ? 'bg-blue-500 text-white' 
+              : 'bg-white text-gray-700 border hover:bg-gray-50'
+          }`}
+        >
+          <History size={20} />
+          {showHistory ? 'Sembunyikan History' : 'Lihat History'}
+        </button>
       </div>
+
+      {/* History Section */}
+      {showHistory && (
+        <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+          <div className="p-4 border-b bg-gray-50">
+            <div className="flex flex-wrap items-end gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Tanggal Awal</label>
+                <input
+                  type="date"
+                  value={historyStartDate}
+                  onChange={(e) => setHistoryStartDate(e.target.value)}
+                  className="px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Tanggal Akhir</label>
+                <input
+                  type="date"
+                  value={historyEndDate}
+                  onChange={(e) => setHistoryEndDate(e.target.value)}
+                  className="px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <button
+                onClick={fetchHistory}
+                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 flex items-center gap-2"
+              >
+                <Search size={18} />
+                Cari
+              </button>
+            </div>
+          </div>
+
+          {historyLoading ? (
+            <div className="p-8 text-center">
+              <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-500 rounded-full animate-spin mx-auto"></div>
+              <p className="text-gray-500 mt-2">Memuat history...</p>
+            </div>
+          ) : history.length === 0 ? (
+            <div className="p-8 text-center">
+              <History className="w-12 h-12 mx-auto text-gray-300 mb-3" />
+              <p className="text-gray-500">Tidak ada data checklist dalam periode ini</p>
+            </div>
+          ) : (
+            <div className="divide-y">
+              {history.map((item) => (
+                <div key={`${item.type}-${item.id}`} className="hover:bg-gray-50">
+                  <div
+                    className="p-4 cursor-pointer flex items-center justify-between"
+                    onClick={() => setExpandedHistoryItem(
+                      expandedHistoryItem === `${item.type}-${item.id}` ? null : `${item.type}-${item.id}`
+                    )}
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className={`p-2 rounded-lg ${
+                        item.type === 'opening' ? 'bg-yellow-100' : 'bg-orange-100'
+                      }`}>
+                        {item.type === 'opening' ? (
+                          <Sun className="text-yellow-600" size={24} />
+                        ) : (
+                          <Moon className="text-orange-600" size={24} />
+                        )}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <p className="font-semibold text-gray-800">
+                            {item.type === 'opening' ? 'Opening' : 'Closing'}
+                          </p>
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                            item.checked_count === item.total_count 
+                              ? 'bg-green-100 text-green-700' 
+                              : 'bg-yellow-100 text-yellow-700'
+                          }`}>
+                            {item.checked_count}/{item.total_count}
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-500">{formatDate(item.date)}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="text-right">
+                        <p className="text-sm text-gray-600">Oleh:</p>
+                        <p className="font-medium text-gray-800">{item.completed_by_name || 'Unknown'}</p>
+                      </div>
+                      {item.type === 'opening' && item.open_time && (
+                        <div className="text-right">
+                          <p className="text-sm text-gray-600">Jam Buka:</p>
+                          <p className="font-medium text-gray-800">{item.open_time}</p>
+                        </div>
+                      )}
+                      {item.type === 'closing' && item.daily_sales > 0 && (
+                        <div className="text-right">
+                          <p className="text-sm text-gray-600">Penjualan:</p>
+                          <p className="font-medium text-green-600">
+                            Rp {item.daily_sales.toLocaleString('id-ID')}
+                          </p>
+                        </div>
+                      )}
+                      {expandedHistoryItem === `${item.type}-${item.id}` ? (
+                        <ChevronUp size={20} className="text-gray-400" />
+                      ) : (
+                        <ChevronDown size={20} className="text-gray-400" />
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Expanded Details */}
+                  {expandedHistoryItem === `${item.type}-${item.id}` && (
+                    <div className="px-4 pb-4">
+                      <div className="bg-gray-50 rounded-lg p-4">
+                        <h4 className="font-medium text-gray-700 mb-3 flex items-center gap-2">
+                          <CheckCircle size={16} />
+                          Detail Checklist
+                        </h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                          {item.items.map((checkItem, idx) => (
+                            <div key={idx} className="flex items-start gap-2 text-sm">
+                              <span className={checkItem.checked ? 'text-green-600' : 'text-gray-400'}>
+                                {checkItem.checked ? '✓' : '○'}
+                              </span>
+                              <span className={`${checkItem.checked ? 'text-gray-800' : 'text-gray-400'} ${checkItem.isAdHoc ? 'italic' : ''}`}>
+                                {checkItem.text}
+                                {checkItem.isAdHoc && <span className="text-xs ml-1 text-blue-500">(tambahan)</span>}
+                                {checkItem.note && <span className="text-gray-500"> ({checkItem.note})</span>}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Opening specific info */}
+                        {item.type === 'opening' && item.tap_status && (
+                          <div className="mt-4 pt-4 border-t">
+                            <p className="text-sm text-gray-700">
+                              <span className="font-medium">Status Keran:</span> {item.tap_status}
+                            </p>
+                            {item.tap_notes && (
+                              <p className="text-xs text-gray-600 mt-1">{item.tap_notes}</p>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Closing specific info */}
+                        {item.type === 'closing' && (
+                          <div className="mt-4 pt-4 border-t space-y-2">
+                            {item.additional_notes && (
+                              <p className="text-sm text-gray-700">
+                                <span className="font-medium">Catatan:</span> {item.additional_notes}
+                              </p>
+                            )}
+                            {(item.next_shift_morning || item.next_shift_afternoon || item.next_shift_stock) && (
+                              <div className="text-sm text-gray-700">
+                                <span className="font-medium">Jadwal Besok:</span>
+                                <div className="ml-4 mt-1 space-y-1">
+                                  {item.next_shift_morning && (
+                                    <p>• Pagi: {item.next_shift_morning}</p>
+                                  )}
+                                  {item.next_shift_afternoon && (
+                                    <p>• Siang: {item.next_shift_afternoon}</p>
+                                  )}
+                                  {item.next_shift_stock && (
+                                    <p>• Stok: {item.next_shift_stock}</p>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Today's Status Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -474,7 +707,7 @@ export default function Crewstore() {
               <Sun className="text-yellow-500" size={28} />
               Checklist Opening {editingOpening && '(Edit)'}
             </h3>
-            <form onSubmit={editingOpening ? handleOpeningSubmitWithEdit : handleOpeningSubmit} className="space-y-4">
+            <form onSubmit={handleOpeningSubmitWithEdit} className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="label">Tanggal</label>
@@ -625,7 +858,7 @@ export default function Crewstore() {
               <Moon className="text-purple-500" size={28} />
               Checklist Closing {editingClosing && '(Edit)'}
             </h3>
-            <form onSubmit={editingClosing ? handleClosingSubmitWithEdit : handleClosingSubmit} className="space-y-4">
+            <form onSubmit={handleClosingSubmitWithEdit} className="space-y-4">
               <div>
                 <label className="label">Tanggal</label>
                 <input

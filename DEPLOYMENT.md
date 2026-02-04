@@ -43,6 +43,50 @@ npm start      # Start server
 Pastikan set di platform hosting:
 - `JWT_SECRET`: Secret key untuk JWT (random string)
 - `PORT`: Port untuk server (default: 5000)
+- `GAS_PRESENSI_URL`: Google Apps Script URL untuk upload foto presensi ke Google Drive
+
+## Setup Google Drive untuk Foto Presensi
+
+Foto presensi akan disimpan di Google Drive menggunakan Apps Script sebagai middleware.
+
+### Langkah Setup:
+
+1. **Buat Folder di Google Drive**
+   - Buka [drive.google.com](https://drive.google.com)
+   - Buat folder baru, misal "KPI Himeku - Presensi"
+   - Copy folder ID dari URL: `https://drive.google.com/drive/folders/FOLDER_ID_HERE`
+
+2. **Deploy Apps Script**
+   - Buka [script.google.com](https://script.google.com)
+   - Klik "New Project"
+   - Copy isi file `/public/gas-presensi-upload.js` dari repository
+   - Ganti `YOUR_FOLDER_ID_HERE` dengan folder ID dari langkah 1
+   - Klik menu "Deploy" → "New deployment"
+   - Pilih type: "Web app"
+   - Execute as: "Me"
+   - Who has access: "Anyone"
+   - Klik "Deploy"
+   - Copy URL yang diberikan
+
+3. **Set Environment Variable**
+   ```
+   GAS_PRESENSI_URL=https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec
+   ```
+
+4. **Test**
+   - Jalankan server
+   - Coba presensi dengan foto
+   - Cek folder Google Drive, foto akan tersimpan dengan struktur:
+     ```
+     KPI Himeku - Presensi/
+     ├── 2026-02/
+     │   ├── presensi_Nama_Staff_123456789.jpg
+     │   └── ...
+     └── 2026-03/
+         └── ...
+     ```
+
+**Catatan**: Jika `GAS_PRESENSI_URL` tidak diset, foto akan disimpan sebagai base64 di database (tidak disarankan untuk production).
 
 ## Database
 

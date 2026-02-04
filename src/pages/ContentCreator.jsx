@@ -27,7 +27,7 @@ const contentTypes = [
   { id: 'carousel', label: 'Carousel', icon: Camera, color: 'green' },
 ];
 
-export default function ContentCreator() {
+export default function ContentCreator({ user }) {
   const [creators, setCreators] = useState([]);
   const [posts, setPosts] = useState([]);
   const [staff, setStaff] = useState([]);
@@ -37,8 +37,11 @@ export default function ContentCreator() {
   const [showEditCreator, setShowEditCreator] = useState(false);
   const [selectedCreator, setSelectedCreator] = useState(null);
   const [editingCreator, setEditingCreator] = useState(null);
+  const [editingPost, setEditingPost] = useState(null);
   const [encourageMsg, setEncourageMsg] = useState(getRandomEncourage());
   const [activeTab, setActiveTab] = useState('leaderboard');
+  
+  const isAdmin = user?.role === 'admin';
 
   useEffect(() => {
     fetchData();
@@ -145,6 +148,14 @@ export default function ContentCreator() {
     e.preventDefault();
     const formData = new FormData(e.target);
     
+    // Get creator_id from form (if selected from dropdown) or from selectedCreator
+    const creatorId = selectedCreator?.id || formData.get('creator_id');
+    
+    if (!creatorId) {
+      alert('Pilih creator terlebih dahulu!');
+      return;
+    }
+    
     try {
       const token = localStorage.getItem('token');
       const response = await fetch('/api/contentcreator/posts', {
@@ -154,7 +165,7 @@ export default function ContentCreator() {
           Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({
-          creator_id: selectedCreator?.id,
+          creator_id: creatorId,
           date: formData.get('date'),
           content_type: formData.get('content_type'),
           platform: formData.get('platform'),
@@ -175,6 +186,43 @@ export default function ContentCreator() {
       }
     } catch (error) {
       console.error('Error adding post:', error);
+    }
+  };
+
+  const handleEditPost = async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/contentcreator/posts/${editingPost.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          date: formData.get('date'),
+          content_type: formData.get('content_type'),
+          platform: formData.get('platform'),
+          title: formData.get('title'),
+          url: formData.get('url'),
+          views: parseInt(formData.get('views') || 0),
+          likes: parseInt(formData.get('likes') || 0),
+          comments: parseInt(formData.get('comments') || 0),
+          shares: parseInt(formData.get('shares') || 0)
+        })
+      });
+
+      if (response.ok) {
+        setShowAddPost(false);
+        setSelectedCreator(null);
+        setEditingPost(null);
+        setEncourageMsg(getRandomEncourage());
+        fetchData();
+      }
+    } catch (error) {
+      console.error('Error updating post:', error);
     }
   };
 
@@ -225,13 +273,15 @@ export default function ContentCreator() {
           </h1>
           <p className="text-gray-600 mt-1">KPI tracking untuk content creator - Let's make it viral! 🚀</p>
         </div>
-        <button
-          onClick={() => setShowAddCreator(true)}
-          className="btn bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white flex items-center gap-2"
-        >
-          <Plus size={20} />
-          Tambah Creator
-        </button>
+        {isAdmin && (
+          <button
+            onClick={() => setShowAddCreator(true)}
+            className="btn bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white flex items-center gap-2"
+          >
+            <Plus size={20} />
+            Tambah Creator
+          </button>
+        )}
       </div>
 
       {/* Encourage Message */}
@@ -368,34 +418,26 @@ export default function ContentCreator() {
                     
                     <div className="text-right">
                       <div className="text-2xl font-bold text-pink-600">{progress.toFixed(0)}%</div>
-                      <div className="flex gap-1 mt-1">
-                        <button
-                          onClick={() => {
-                            setSelectedCreator(creator);
-                            setShowAddPost(true);
-                          }}
-                          className="text-xs text-blue-600 hover:underline"
-                        >
-                          + Post
-                        </button>
-                        <span className="text-gray-300">|</span>
-                        <button
-                          onClick={() => {
-                            setEditingCreator(creator);
-                            setShowEditCreator(true);
-                          }}
-                          className="text-xs text-green-600 hover:underline"
-                        >
-                          Edit
-                        </button>
-                        <span className="text-gray-300">|</span>
-                        <button
-                          onClick={() => handleDeleteCreator(creator.id)}
-                          className="text-xs text-red-600 hover:underline"
-                        >
-                          Hapus
-                        </button>
-                      </div>
+                      {isAdmin && (
+                        <div className="flex gap-1 mt-1">
+                          <button
+                            onClick={() => {
+                              setEditingCreator(creator);
+                              setShowEditCreator(true);
+                            }}
+                            className="text-xs text-green-600 hover:underline"
+                          >
+                            Edit KPI
+                          </button>
+                          <span className="text-gray-300">|</span>
+                          <button
+                            onClick={() => handleDeleteCreator(creator.id)}
+                            className="text-xs text-red-600 hover:underline"
+                          >
+                            Hapus
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                   
@@ -423,9 +465,22 @@ export default function ContentCreator() {
       {/* Posts Tab */}
       {activeTab === 'posts' && (
         <div className="card">
-          <div className="flex items-center gap-3 mb-6">
-            <Video className="text-purple-500" size={28} />
-            <h2 className="text-2xl font-bold text-gray-800">Posts Terbaru</h2>
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <Video className="text-purple-500" size={28} />
+              <h2 className="text-2xl font-bold text-gray-800">Posts Terbaru</h2>
+            </div>
+            <button
+              onClick={() => {
+                setSelectedCreator(null);
+                setEditingPost(null);
+                setShowAddPost(true);
+              }}
+              className="btn bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white flex items-center gap-2"
+            >
+              <Plus size={20} />
+              Tambah Post
+            </button>
           </div>
 
           <div className="overflow-x-auto">
@@ -460,12 +515,26 @@ export default function ContentCreator() {
                     <td className="px-4 py-3 text-sm font-bold text-blue-600">{formatNumber(post.views || 0)}</td>
                     <td className="px-4 py-3 text-sm font-bold text-pink-600">{formatNumber(post.likes || 0)}</td>
                     <td className="px-4 py-3">
-                      <button
-                        onClick={() => handleDeletePost(post.id)}
-                        className="p-2 text-red-500 hover:bg-red-50 rounded"
-                      >
-                        <Trash2 size={16} />
-                      </button>
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => {
+                            setEditingPost(post);
+                            setSelectedCreator(creators.find(c => c.id === post.creator_id));
+                            setShowAddPost(true);
+                          }}
+                          className="p-2 text-blue-500 hover:bg-blue-50 rounded"
+                          title="Edit Post"
+                        >
+                          <Edit2 size={16} />
+                        </button>
+                        <button
+                          onClick={() => handleDeletePost(post.id)}
+                          className="p-2 text-red-500 hover:bg-red-50 rounded"
+                          title="Hapus Post"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -630,24 +699,45 @@ export default function ContentCreator() {
         </div>
       )}
 
-      {/* Add Post Modal */}
-      {showAddPost && selectedCreator && (
+      {/* Add/Edit Post Modal */}
+      {showAddPost && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xl font-bold">📸 Add Post - {selectedCreator.name}</h3>
-              <button onClick={() => { setShowAddPost(false); setSelectedCreator(null); }} className="p-2 hover:bg-gray-100 rounded-full">
+              <h3 className="text-xl font-bold">
+                {editingPost ? '✏️ Edit Post' : '📸 Tambah Post'}
+                {selectedCreator && ` - ${selectedCreator.name}`}
+              </h3>
+              <button onClick={() => { setShowAddPost(false); setSelectedCreator(null); setEditingPost(null); }} className="p-2 hover:bg-gray-100 rounded-full">
                 <X size={20} />
               </button>
             </div>
-            <form onSubmit={handleAddPost} className="space-y-4">
+            <form onSubmit={editingPost ? handleEditPost : handleAddPost} className="space-y-4">
+              {/* Creator selection - only show when not pre-selected */}
+              {!selectedCreator && (
+                <div>
+                  <label className="label">Pilih Creator</label>
+                  <select 
+                    name="creator_id" 
+                    className="input" 
+                    required
+                    defaultValue={editingPost?.creator_id || ''}
+                  >
+                    <option value="">-- Pilih Creator --</option>
+                    {creators.map(c => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <div>
                 <label className="label">📅 Tanggal</label>
                 <input
                   type="date"
                   name="date"
                   className="input"
-                  defaultValue={new Date().toISOString().split('T')[0]}
+                  defaultValue={editingPost?.date || new Date().toISOString().split('T')[0]}
                   required
                 />
               </div>
@@ -655,7 +745,7 @@ export default function ContentCreator() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="label">Tipe Konten</label>
-                  <select name="content_type" className="input" required>
+                  <select name="content_type" className="input" required defaultValue={editingPost?.content_type || 'reel'}>
                     {contentTypes.map(t => (
                       <option key={t.id} value={t.id}>{t.label}</option>
                     ))}
@@ -663,7 +753,7 @@ export default function ContentCreator() {
                 </div>
                 <div>
                   <label className="label">Platform</label>
-                  <select name="platform" className="input" required>
+                  <select name="platform" className="input" required defaultValue={editingPost?.platform || 'instagram'}>
                     <option value="instagram">Instagram</option>
                     <option value="tiktok">TikTok</option>
                     <option value="youtube">YouTube</option>
@@ -680,6 +770,7 @@ export default function ContentCreator() {
                   name="title"
                   className="input"
                   placeholder="Judul atau deskripsi konten"
+                  defaultValue={editingPost?.title || ''}
                 />
               </div>
 
@@ -690,38 +781,42 @@ export default function ContentCreator() {
                   name="url"
                   className="input"
                   placeholder="https://..."
+                  defaultValue={editingPost?.url || ''}
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="label">👁️ Views</label>
-                  <input type="number" name="views" className="input" placeholder="0" />
+                  <input type="number" name="views" className="input" placeholder="0" defaultValue={editingPost?.views || ''} />
                 </div>
                 <div>
                   <label className="label">❤️ Likes</label>
-                  <input type="number" name="likes" className="input" placeholder="0" />
+                  <input type="number" name="likes" className="input" placeholder="0" defaultValue={editingPost?.likes || ''} />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="label">💬 Comments</label>
-                  <input type="number" name="comments" className="input" placeholder="0" />
+                  <input type="number" name="comments" className="input" placeholder="0" defaultValue={editingPost?.comments || ''} />
                 </div>
                 <div>
                   <label className="label">🔄 Shares</label>
-                  <input type="number" name="shares" className="input" placeholder="0" />
+                  <input type="number" name="shares" className="input" placeholder="0" defaultValue={editingPost?.shares || ''} />
                 </div>
               </div>
 
               <div className="flex gap-3 pt-4">
-                <button type="submit" className="btn btn-primary flex-1 bg-gradient-to-r from-pink-500 to-purple-600">Post it! 🔥</button>
+                <button type="submit" className="btn btn-primary flex-1 bg-gradient-to-r from-pink-500 to-purple-600">
+                  {editingPost ? 'Update! ✨' : 'Post it! 🔥'}
+                </button>
                 <button
                   type="button"
                   onClick={() => {
                     setShowAddPost(false);
                     setSelectedCreator(null);
+                    setEditingPost(null);
                   }}
                   className="btn btn-secondary flex-1"
                 >

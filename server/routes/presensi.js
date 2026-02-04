@@ -4,8 +4,9 @@ export default function presensiRoutes(db) {
   const router = Router();
 
   // Google Apps Script Web App URL for uploading photos to Google Drive
-  // Deploy the script in /public/gas-upload-script.js to get this URL
-  const GAS_UPLOAD_URL = process.env.GAS_UPLOAD_URL || '';
+  // Deploy the script in /public/gas-presensi-upload.js to get this URL
+  // Format: https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec
+  const GAS_PRESENSI_URL = process.env.GAS_PRESENSI_URL || 'https://script.google.com/macros/s/AKfycbxZyxu6rk-m8DXMqKyz0jEivRpS6WZriVEDvXHa6FWEqsjdIfpk4mVy1MUluBjKOuOi/exec';
 
   // Shift time limits (max time to check in)
   const SHIFT_LIMITS = {
@@ -158,6 +159,44 @@ export default function presensiRoutes(db) {
     }
   });
 
+  // Get rekap kehadiran per karyawan (admin only)
+  router.get('/rekap-kehadiran', (req, res) => {
+    try {
+      if (req.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+
+      const { startDate, endDate } = req.query;
+      
+      if (!startDate || !endDate) {
+        return res.status(400).json({ error: 'startDate dan endDate harus diisi' });
+      }
+
+      // Get all check-ins within date range grouped by user
+      const allRecords = db.prepare(`
+        SELECT 
+          u.id as user_id,
+          u.name as staff_name,
+          u.username,
+          COUNT(DISTINCT CASE WHEN p.jenis = 'Masuk' THEN DATE(p.timestamp) END) as total_hadir,
+          COUNT(CASE WHEN p.jenis = 'Masuk' AND (p.late_minutes IS NULL OR p.late_minutes = 0) THEN 1 END) as tepat_waktu,
+          COUNT(CASE WHEN p.jenis = 'Masuk' AND p.late_minutes > 0 THEN 1 END) as terlambat,
+          COALESCE(SUM(CASE WHEN p.jenis = 'Masuk' AND p.late_minutes > 0 THEN p.late_minutes ELSE 0 END), 0) as total_menit_terlambat
+        FROM users u
+        LEFT JOIN presensi p ON u.id = p.user_id AND DATE(p.timestamp) BETWEEN ? AND ?
+        WHERE u.role != 'admin' OR p.id IS NOT NULL
+        GROUP BY u.id, u.name, u.username
+        HAVING total_hadir > 0
+        ORDER BY u.name
+      `).all(startDate, endDate);
+
+      res.json(allRecords);
+    } catch (error) {
+      console.error('Error fetching rekap kehadiran:', error);
+      res.status(500).json({ error: 'Failed to fetch rekap kehadiran' });
+    }
+  });
+
   // Upload foto ke Google Drive via Apps Script
   router.post('/upload-foto', async (req, res) => {
     try {
@@ -168,25 +207,36 @@ export default function presensiRoutes(db) {
       }
 
       // Check if GAS URL is configured
-      if (!GAS_UPLOAD_URL) {
+      if (!GAS_PRESENSI_URL) {
         // Return base64 directly if GAS not configured (fallback)
         return res.json({
           success: true,
           directUrl: base64,
-          message: 'GAS_UPLOAD_URL belum dikonfigurasi, menggunakan base64'
+          message: 'GAS_PRESENSI_URL belum dikonfigurasi, menggunakan base64'
         });
       }
 
+      // Get staff name from user
+      const user = db.prepare('SELECT name FROM users WHERE id = ?').get(req.user.id);
+      const staffName = user?.name || 'Unknown';
+      const today = new Date().toISOString().split('T')[0];
+
+      // Remove data:image/jpeg;base64, prefix if present
+      const base64Data = base64.replace(/^data:image\/\w+;base64,/, '');
+
       // Call Google Apps Script Web App
-      const response = await fetch(GAS_UPLOAD_URL, {
+      const response = await fetch(GAS_PRESENSI_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          base64,
-          filename: `${Date.now()}_${req.user.name.replace(/\s+/g, '_')}_${filename}`,
-          mimeType: mimeType || 'image/jpeg'
+          action: 'upload',
+          base64Data: base64Data,
+          fileName: `presensi_${staffName.replace(/\s+/g, '_')}_${Date.now()}.jpg`,
+          mimeType: mimeType || 'image/jpeg',
+          staffName: staffName,
+          date: today
         })
       });
 
@@ -195,19 +245,28 @@ export default function presensiRoutes(db) {
       if (data.success) {
         res.json({
           success: true,
-          directUrl: data.directUrl,
-          fileUrl: data.fileUrl,
-          fileId: data.fileId
+          directUrl: data.data.directUrl,
+          fileUrl: data.data.fileUrl,
+          fileId: data.data.fileId,
+          thumbnailUrl: data.data.thumbnailUrl
         });
       } else {
-        res.status(500).json({ 
-          success: false, 
-          error: data.error || 'Upload gagal' 
+        // Fallback to base64 if upload fails
+        console.error('GAS upload failed:', data.message);
+        res.json({
+          success: true,
+          directUrl: base64,
+          message: 'Upload ke Google Drive gagal, menggunakan base64'
         });
       }
     } catch (error) {
       console.error('Error uploading foto:', error);
-      res.status(500).json({ error: 'Gagal upload foto ke Google Drive' });
+      // Fallback to base64
+      res.json({
+        success: true,
+        directUrl: req.body.base64,
+        message: 'Error upload, menggunakan base64'
+      });
     }
   });
 

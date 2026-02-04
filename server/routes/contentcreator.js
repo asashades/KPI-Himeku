@@ -161,15 +161,15 @@ export default function (db) {
     }
   });
 
-  // Update post metrics
+  // Update post
   router.put('/posts/:id', (req, res) => {
     try {
-      const { views, likes, comments, shares, title, url } = req.body;
+      const { date, content_type, platform, title, url, views, likes, comments, shares } = req.body;
       db.prepare(`
         UPDATE content_posts 
-        SET views = ?, likes = ?, comments = ?, shares = ?, title = ?, url = ?
+        SET date = ?, content_type = ?, platform = ?, title = ?, url = ?, views = ?, likes = ?, comments = ?, shares = ?
         WHERE id = ?
-      `).run(views, likes, comments, shares, title, url, req.params.id);
+      `).run(date, content_type, platform, title, url, views || 0, likes || 0, comments || 0, shares || 0, req.params.id);
       res.json({ message: 'Post updated successfully!' });
     } catch (error) {
       res.status(500).json({ error: error.message });

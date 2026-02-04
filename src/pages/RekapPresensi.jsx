@@ -1,13 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Clock, AlertTriangle, Calendar, Search, Users, TrendingDown, ChevronDown, ChevronUp } from 'lucide-react';
+import { Clock, AlertTriangle, Calendar, Search, Users, CheckCircle, TrendingDown } from 'lucide-react';
 
 export default function RekapPresensi({ user }) {
   const [rekap, setRekap] = useState([]);
   const [loading, setLoading] = useState(false);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [expandedUser, setExpandedUser] = useState(null);
-  const [summary, setSummary] = useState({ totalLate: 0, totalMinutes: 0, totalUsers: 0 });
+  const [summary, setSummary] = useState({ totalKaryawan: 0, totalHadir: 0, totalTepat: 0, totalTerlambat: 0 });
 
   // Set default date range to current month
   useEffect(() => {
@@ -29,19 +28,22 @@ export default function RekapPresensi({ user }) {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`/api/presensi/rekap-terlambat?startDate=${startDate}&endDate=${endDate}`, {
+      const res = await fetch(`/api/presensi/rekap-kehadiran?startDate=${startDate}&endDate=${endDate}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
       setRekap(Array.isArray(data) ? data : []);
       
       // Calculate summary
-      const totalLate = data.reduce((sum, r) => sum + r.late_count, 0);
-      const totalMinutes = data.reduce((sum, r) => sum + r.total_late_minutes, 0);
+      const totalKaryawan = data.length;
+      const totalHadir = data.reduce((sum, r) => sum + (r.total_hadir || 0), 0);
+      const totalTepat = data.reduce((sum, r) => sum + (r.tepat_waktu || 0), 0);
+      const totalTerlambat = data.reduce((sum, r) => sum + (r.terlambat || 0), 0);
       setSummary({
-        totalLate,
-        totalMinutes,
-        totalUsers: data.length
+        totalKaryawan,
+        totalHadir,
+        totalTepat,
+        totalTerlambat
       });
     } catch (error) {
       console.error('Error:', error);
@@ -51,18 +53,11 @@ export default function RekapPresensi({ user }) {
   };
 
   const formatMinutes = (minutes) => {
+    if (!minutes || minutes === 0) return '0 menit';
     if (minutes < 60) return `${minutes} menit`;
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
     return `${hours} jam ${mins} menit`;
-  };
-
-  const formatDate = (dateStr) => {
-    return new Date(dateStr).toLocaleDateString('id-ID', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric'
-    });
   };
 
   if (user?.role !== 'admin') {
@@ -80,10 +75,10 @@ export default function RekapPresensi({ user }) {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-          <Clock className="text-orange-500" />
-          Rekap Keterlambatan Presensi
+          <Users className="text-blue-500" />
+          Rekap Kehadiran Presensi
         </h1>
-        <p className="text-gray-500 mt-1">Monitor keterlambatan karyawan</p>
+        <p className="text-gray-500 mt-1">Monitor kehadiran karyawan berdasarkan nama</p>
       </div>
 
       {/* Date Filter */}
@@ -95,7 +90,7 @@ export default function RekapPresensi({ user }) {
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="px-3 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+              className="px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
           <div>
@@ -104,12 +99,12 @@ export default function RekapPresensi({ user }) {
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              className="px-3 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+              className="px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
           <button
             onClick={fetchRekap}
-            className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 flex items-center gap-2"
+            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 flex items-center gap-2"
           >
             <Search size={18} />
             Cari
@@ -118,15 +113,37 @@ export default function RekapPresensi({ user }) {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-white rounded-xl p-4 shadow-sm border">
           <div className="flex items-center gap-3">
-            <div className="p-3 bg-orange-100 rounded-xl">
-              <Users className="text-orange-600" size={24} />
+            <div className="p-3 bg-blue-100 rounded-xl">
+              <Users className="text-blue-600" size={24} />
             </div>
             <div>
-              <p className="text-sm text-gray-500">Karyawan Terlambat</p>
-              <p className="text-2xl font-bold text-gray-800">{summary.totalUsers}</p>
+              <p className="text-sm text-gray-500">Total Karyawan</p>
+              <p className="text-2xl font-bold text-gray-800">{summary.totalKaryawan}</p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-white rounded-xl p-4 shadow-sm border">
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-purple-100 rounded-xl">
+              <Calendar className="text-purple-600" size={24} />
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Total Kehadiran</p>
+              <p className="text-2xl font-bold text-gray-800">{summary.totalHadir}</p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-white rounded-xl p-4 shadow-sm border">
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-green-100 rounded-xl">
+              <CheckCircle className="text-green-600" size={24} />
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Tepat Waktu</p>
+              <p className="text-2xl font-bold text-green-600">{summary.totalTepat}</p>
             </div>
           </div>
         </div>
@@ -136,19 +153,8 @@ export default function RekapPresensi({ user }) {
               <AlertTriangle className="text-red-600" size={24} />
             </div>
             <div>
-              <p className="text-sm text-gray-500">Total Keterlambatan</p>
-              <p className="text-2xl font-bold text-gray-800">{summary.totalLate}x</p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white rounded-xl p-4 shadow-sm border">
-          <div className="flex items-center gap-3">
-            <div className="p-3 bg-yellow-100 rounded-xl">
-              <TrendingDown className="text-yellow-600" size={24} />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Total Waktu Terlambat</p>
-              <p className="text-2xl font-bold text-gray-800">{formatMinutes(summary.totalMinutes)}</p>
+              <p className="text-sm text-gray-500">Terlambat</p>
+              <p className="text-2xl font-bold text-red-600">{summary.totalTerlambat}</p>
             </div>
           </div>
         </div>
@@ -158,67 +164,65 @@ export default function RekapPresensi({ user }) {
       <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
         {loading ? (
           <div className="p-8 text-center">
-            <div className="w-8 h-8 border-4 border-orange-200 border-t-orange-500 rounded-full animate-spin mx-auto"></div>
+            <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-500 rounded-full animate-spin mx-auto"></div>
             <p className="text-gray-500 mt-2">Memuat data...</p>
           </div>
         ) : rekap.length === 0 ? (
           <div className="p-8 text-center">
-            <Clock className="w-12 h-12 mx-auto text-gray-300 mb-3" />
-            <p className="text-gray-500">Tidak ada data keterlambatan dalam periode ini</p>
-            <p className="text-sm text-gray-400">Semua karyawan tepat waktu! 🎉</p>
+            <Users className="w-12 h-12 mx-auto text-gray-300 mb-3" />
+            <p className="text-gray-500">Tidak ada data kehadiran dalam periode ini</p>
           </div>
         ) : (
-          <div className="divide-y">
-            {rekap.map((item, index) => (
-              <div key={item.user_id} className="hover:bg-gray-50">
-                <div 
-                  className="p-4 cursor-pointer flex items-center justify-between"
-                  onClick={() => setExpandedUser(expandedUser === item.user_id ? null : item.user_id)}
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center text-orange-600 font-bold">
-                      {index + 1}
-                    </div>
-                    <div>
-                      <p className="font-semibold text-gray-800">{item.staff_name}</p>
-                      <p className="text-sm text-gray-500">@{item.username}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-6">
-                    <div className="text-right">
-                      <p className="text-lg font-bold text-red-600">{item.late_count}x terlambat</p>
-                      <p className="text-sm text-gray-500">Total {formatMinutes(item.total_late_minutes)}</p>
-                    </div>
-                    {expandedUser === item.user_id ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-                  </div>
-                </div>
-                
-                {/* Detail Keterlambatan */}
-                {expandedUser === item.user_id && item.late_details && (
-                  <div className="px-4 pb-4">
-                    <div className="bg-gray-50 rounded-lg p-4">
-                      <h4 className="font-medium text-gray-700 mb-3 flex items-center gap-2">
-                        <Calendar size={16} />
-                        Detail Keterlambatan
-                      </h4>
-                      <div className="space-y-2">
-                        {item.late_details.map((detail, idx) => (
-                          <div key={idx} className="flex justify-between items-center py-2 px-3 bg-white rounded-lg">
-                            <div>
-                              <span className="font-medium">{formatDate(detail.date)}</span>
-                              <span className="text-gray-500 ml-2">({detail.shift})</span>
-                            </div>
-                            <span className="text-red-600 font-medium">
-                              Terlambat {detail.late_minutes} menit
-                            </span>
-                          </div>
-                        ))}
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left font-semibold text-gray-700">No</th>
+                  <th className="px-4 py-3 text-left font-semibold text-gray-700">Nama Karyawan</th>
+                  <th className="px-4 py-3 text-center font-semibold text-gray-700">Jumlah Hadir</th>
+                  <th className="px-4 py-3 text-center font-semibold text-gray-700">Tepat Waktu</th>
+                  <th className="px-4 py-3 text-center font-semibold text-gray-700">Terlambat</th>
+                  <th className="px-4 py-3 text-left font-semibold text-gray-700">Total Waktu Terlambat</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {rekap.map((item, index) => (
+                  <tr key={item.user_id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 text-gray-600">{index + 1}</td>
+                    <td className="px-4 py-3">
+                      <div>
+                        <p className="font-semibold text-gray-800">{item.staff_name}</p>
+                        <p className="text-xs text-gray-500">@{item.username}</p>
                       </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full font-bold">
+                        {item.total_hadir}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full font-bold">
+                        {item.tepat_waktu}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <span className={`px-3 py-1 rounded-full font-bold ${
+                        item.terlambat > 0 ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-500'
+                      }`}>
+                        {item.terlambat}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`font-medium ${
+                        item.total_menit_terlambat > 0 ? 'text-red-600' : 'text-gray-500'
+                      }`}>
+                        {formatMinutes(item.total_menit_terlambat)}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>

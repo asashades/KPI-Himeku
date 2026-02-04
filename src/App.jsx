@@ -63,7 +63,7 @@ function App() {
           <Route path="/hostlive" element={<HostLive />} />
           <Route path="/warehouse" element={<Warehouse />} />
           <Route path="/crewstore" element={<Crewstore />} />
-          <Route path="/contentcreator" element={<ContentCreator />} />
+          <Route path="/contentcreator" element={<ContentCreator user={user} />} />
           <Route path="/presensi" element={<Presensi user={user} />} />
           <Route path="/rekap-presensi" element={<RekapPresensi user={user} />} />
           <Route path="/slipgaji" element={<SlipGaji user={user} />} />

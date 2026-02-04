@@ -225,5 +225,74 @@ export default function (db) {
     }
   });
 
+  // Get history of checklists
+  router.get('/history', (req, res) => {
+    try {
+      const { startDate, endDate } = req.query;
+      
+      // Get opening history
+      let openingQuery = `
+        SELECT co.*, u.name as completed_by_name, 'opening' as type
+        FROM crewstore_opening co
+        LEFT JOIN users u ON co.completed_by = u.id
+        WHERE 1=1
+      `;
+      const openingParams = [];
+
+      if (startDate) {
+        openingQuery += ' AND co.date >= ?';
+        openingParams.push(startDate);
+      }
+      if (endDate) {
+        openingQuery += ' AND co.date <= ?';
+        openingParams.push(endDate);
+      }
+
+      const openingList = db.prepare(openingQuery).all(...openingParams);
+      openingList.forEach(item => {
+        item.items = JSON.parse(item.items);
+        item.checked_count = item.items.filter(i => i.checked).length;
+        item.total_count = item.items.length;
+      });
+
+      // Get closing history
+      let closingQuery = `
+        SELECT cc.*, u.name as completed_by_name, 'closing' as type
+        FROM crewstore_closing cc
+        LEFT JOIN users u ON cc.completed_by = u.id
+        WHERE 1=1
+      `;
+      const closingParams = [];
+
+      if (startDate) {
+        closingQuery += ' AND cc.date >= ?';
+        closingParams.push(startDate);
+      }
+      if (endDate) {
+        closingQuery += ' AND cc.date <= ?';
+        closingParams.push(endDate);
+      }
+
+      const closingList = db.prepare(closingQuery).all(...closingParams);
+      closingList.forEach(item => {
+        item.items = JSON.parse(item.items);
+        item.checked_count = item.items.filter(i => i.checked).length;
+        item.total_count = item.items.length;
+      });
+
+      // Combine and sort by date (newest first)
+      const combined = [...openingList, ...closingList]
+        .sort((a, b) => {
+          // Sort by date DESC, then by type (opening before closing for same date)
+          if (b.date !== a.date) return b.date.localeCompare(a.date);
+          return a.type === 'opening' ? -1 : 1;
+        });
+
+      res.json(combined);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   return router;
 }

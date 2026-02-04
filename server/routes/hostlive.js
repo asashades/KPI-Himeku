@@ -34,34 +34,48 @@ export default function (db) {
         return obj;
       });
 
+      // Get staff data for email validation
+      const staffList = db.prepare('SELECT name, email FROM staff WHERE active = 1').all();
+      const staffMap = {};
+      staffList.forEach(s => {
+        if (s.email) staffMap[s.email.toLowerCase()] = s.name;
+      });
+
       // Map to standard format
-      let rekapLive = rows.map(row => ({
-        rekap_id: row['RekapID'] || '',
-        email_host: row['EmailHost'] || '',
-        nama_host: row['NamaHost'] || '',
-        tanggal_live: row['TanggalLive'] || '',
-        jam_mulai: row['JamMulai'] || '',
-        jam_selesai: row['JamSelesai'] || '',
-        durasi_jam: parseFloat(row['DurasiJam']) || 0,
-        gaji: parseInt(row['Gaji']) || 0,
-        foto_bukti_url: row['FotoBuktiURL'] || '',
-        submit_at: row['SubmitAt'] || ''
-      })).filter(r => r.rekap_id); // Filter out empty rows
+      let rekapLive = rows.map(row => {
+        const emailHost = row['EmailHost'] || '';
+        // Try to get name from staff by email
+        const staffName = emailHost ? staffMap[emailHost.toLowerCase()] : null;
+        const displayName = staffName || row['NamaHost'] || 'Unknown';
+        
+        return {
+          RekapID: row['RekapID'] || '',
+          EmailHost: emailHost,
+          NamaHost: displayName,
+          TanggalLive: row['TanggalLive'] || '',
+          JamMulai: row['JamMulai'] || '',
+          JamSelesai: row['JamSelesai'] || '',
+          DurasiJam: parseFloat(row['DurasiJam']) || 0,
+          Gaji: parseInt(row['Gaji']) || 0,
+          FotoBuktiURL: row['FotoBuktiURL'] || '',
+          SubmitAt: row['SubmitAt'] || ''
+        };
+      }).filter(r => r.RekapID); // Filter out empty rows
 
       // Apply filters
       if (startDate && endDate) {
         rekapLive = rekapLive.filter(r => {
-          const date = r.tanggal_live;
+          const date = r.TanggalLive;
           return date >= startDate && date <= endDate;
         });
       }
 
       if (email) {
-        rekapLive = rekapLive.filter(r => r.email_host.toLowerCase() === email.toLowerCase());
+        rekapLive = rekapLive.filter(r => r.EmailHost.toLowerCase().includes(email.toLowerCase()));
       }
 
       // Sort by date descending
-      rekapLive.sort((a, b) => new Date(b.tanggal_live) - new Date(a.tanggal_live));
+      rekapLive.sort((a, b) => new Date(b.TanggalLive) - new Date(a.TanggalLive));
 
       res.json(rekapLive);
     } catch (error) {
@@ -111,25 +125,36 @@ export default function (db) {
         });
       }
 
+      // Get staff data for email validation
+      const staffList = db.prepare('SELECT name, email FROM staff WHERE active = 1').all();
+      const staffMap = {};
+      staffList.forEach(s => {
+        if (s.email) staffMap[s.email.toLowerCase()] = s.name;
+      });
+
       // Group by host
       const summary = {};
       rekapLive.forEach(r => {
         const key = r.email_host || r.nama_host;
+        // Try to get name from staff by email
+        const staffName = r.email_host ? staffMap[r.email_host.toLowerCase()] : null;
+        const displayName = staffName || r.nama_host || 'Unknown';
+        
         if (!summary[key]) {
           summary[key] = {
-            email_host: r.email_host,
-            nama_host: r.nama_host,
-            total_sessions: 0,
-            total_durasi: 0,
-            total_gaji: 0
+            EmailHost: r.email_host,
+            NamaHost: displayName,
+            totalSessions: 0,
+            totalHours: 0,
+            totalGaji: 0
           };
         }
-        summary[key].total_sessions++;
-        summary[key].total_durasi += r.durasi_jam;
-        summary[key].total_gaji += r.gaji;
+        summary[key].totalSessions++;
+        summary[key].totalHours += r.durasi_jam;
+        summary[key].totalGaji += r.gaji;
       });
 
-      const result = Object.values(summary).sort((a, b) => b.total_durasi - a.total_durasi);
+      const result = Object.values(summary).sort((a, b) => b.totalHours - a.totalHours);
       res.json(result);
     } catch (error) {
       console.error('Error:', error);
