@@ -1,22 +1,33 @@
 import express from 'express';
 
+// Helper function to get month date range
+function getMonthRange() {
+  const now = new Date();
+  const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  const monthEnd = lastDay.toISOString().split('T')[0];
+  return { monthStart, monthEnd };
+}
+
 export default function (db) {
   const router = express.Router();
 
   // Get all creators with their current month progress
   router.get('/creators', async (req, res) => {
     try {
+      const { monthStart, monthEnd } = getMonthRange();
+      
       const creators = await db.all(`
         SELECT cc.*, s.name, s.photo_url,
                COALESCE(COUNT(cp.id), 0) as current_month_posts
         FROM content_creators cc
         JOIN staff s ON cc.staff_id = s.id
         LEFT JOIN content_posts cp ON cc.id = cp.creator_id 
-          AND strftime('%Y-%m', cp.date) = strftime('%Y-%m', 'now')
+          AND cp.date >= ? AND cp.date <= ?
         WHERE cc.active = 1
-        GROUP BY cc.id
+        GROUP BY cc.id, s.name, s.photo_url
         ORDER BY current_month_posts DESC
-      `);
+      `, [monthStart, monthEnd]);
       
       res.json(creators);
     } catch (error) {
@@ -39,11 +50,12 @@ export default function (db) {
       }
 
       // Get posts for current month
+      const { monthStart, monthEnd } = getMonthRange();
       const posts = await db.all(`
         SELECT * FROM content_posts 
-        WHERE creator_id = ? AND strftime('%Y-%m', date) = strftime('%Y-%m', 'now')
+        WHERE creator_id = ? AND date >= ? AND date <= ?
         ORDER BY date DESC
-      `, [req.params.id]);
+      `, [req.params.id, monthStart, monthEnd]);
 
       res.json({ ...creator, posts });
     } catch (error) {

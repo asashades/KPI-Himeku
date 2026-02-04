@@ -212,8 +212,13 @@ export default function (db) {
       }
 
       if (month) {
-        query += ' AND strftime("%Y-%m", wo.date) = ?';
-        params.push(month);
+        // month format: YYYY-MM
+        const [year, m] = month.split('-');
+        const monthStart = `${month}-01`;
+        const lastDay = new Date(parseInt(year), parseInt(m), 0);
+        const monthEnd = lastDay.toISOString().split('T')[0];
+        query += ' AND wo.date >= ? AND wo.date <= ?';
+        params.push(monthStart, monthEnd);
       }
 
       if (status) {
@@ -298,7 +303,10 @@ export default function (db) {
   // Get wrong order stats for dashboard
   router.get('/wrong-orders/stats', async (req, res) => {
     try {
-      const currentMonth = new Date().toISOString().slice(0, 7);
+      const now = new Date();
+      const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+      const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      const monthEnd = lastDay.toISOString().split('T')[0];
       
       const stats = await db.get(`
         SELECT 
@@ -306,14 +314,14 @@ export default function (db) {
           SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
           SUM(CASE WHEN status = 'resolved' THEN 1 ELSE 0 END) as resolved
         FROM warehouse_wrong_orders
-        WHERE strftime('%Y-%m', date) = ?
-      `, [currentMonth]);
+        WHERE date >= ? AND date <= ?
+      `, [monthStart, monthEnd]);
 
       res.json({
         total: stats?.total || 0,
         pending: stats?.pending || 0,
         resolved: stats?.resolved || 0,
-        month: currentMonth
+        month: monthStart.slice(0, 7)
       });
     } catch (error) {
       res.status(500).json({ error: error.message });

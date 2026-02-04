@@ -326,49 +326,54 @@ export default function presensiRoutes(db) {
     try {
       const { month, year } = req.query;
       const currentDate = new Date();
-      const targetMonth = month || currentDate.getMonth() + 1;
-      const targetYear = year || currentDate.getFullYear();
+      const targetMonth = parseInt(month) || currentDate.getMonth() + 1;
+      const targetYear = parseInt(year) || currentDate.getFullYear();
+
+      // Calculate date range for the month
+      const monthStart = `${targetYear}-${String(targetMonth).padStart(2, '0')}-01`;
+      const lastDay = new Date(targetYear, targetMonth, 0);
+      const monthEnd = `${targetYear}-${String(targetMonth).padStart(2, '0')}-${String(lastDay.getDate()).padStart(2, '0')}`;
 
       // Get total days worked this month
       const daysWorked = await db.get(`
         SELECT COUNT(DISTINCT DATE(timestamp)) as days
         FROM presensi
         WHERE user_id = ? 
-        AND strftime('%m', timestamp) = ? 
-        AND strftime('%Y', timestamp) = ?
+        AND DATE(timestamp) >= ? 
+        AND DATE(timestamp) <= ?
         AND jenis = 'Masuk'
-      `, [req.user.id, String(targetMonth).padStart(2, '0'), String(targetYear)]);
+      `, [req.user.id, monthStart, monthEnd]);
 
       // Get on-time count (late_minutes = 0 or NULL)
       const onTimeCount = await db.get(`
         SELECT COUNT(*) as count
         FROM presensi
         WHERE user_id = ? 
-        AND strftime('%m', timestamp) = ? 
-        AND strftime('%Y', timestamp) = ?
+        AND DATE(timestamp) >= ? 
+        AND DATE(timestamp) <= ?
         AND jenis = 'Masuk'
         AND (late_minutes IS NULL OR late_minutes = 0)
-      `, [req.user.id, String(targetMonth).padStart(2, '0'), String(targetYear)]);
+      `, [req.user.id, monthStart, monthEnd]);
 
       // Get late count
       const lateCount = await db.get(`
         SELECT COUNT(*) as count, COALESCE(SUM(late_minutes), 0) as total_minutes
         FROM presensi
         WHERE user_id = ? 
-        AND strftime('%m', timestamp) = ? 
-        AND strftime('%Y', timestamp) = ?
+        AND DATE(timestamp) >= ? 
+        AND DATE(timestamp) <= ?
         AND jenis = 'Masuk'
         AND late_minutes > 0
-      `, [req.user.id, String(targetMonth).padStart(2, '0'), String(targetYear)]);
+      `, [req.user.id, monthStart, monthEnd]);
 
       const totalMasuk = await db.get(`
         SELECT COUNT(*) as count
         FROM presensi
         WHERE user_id = ? 
-        AND strftime('%m', timestamp) = ? 
-        AND strftime('%Y', timestamp) = ?
+        AND DATE(timestamp) >= ? 
+        AND DATE(timestamp) <= ?
         AND jenis = 'Masuk'
-      `, [req.user.id, String(targetMonth).padStart(2, '0'), String(targetYear)]);
+      `, [req.user.id, monthStart, monthEnd]);
 
       res.json({
         daysWorked: daysWorked?.days || 0,
