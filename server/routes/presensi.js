@@ -186,7 +186,7 @@ export default function presensiRoutes(db) {
         LEFT JOIN presensi p ON u.id = p.user_id AND DATE(p.timestamp) BETWEEN ? AND ?
         WHERE u.role != 'admin' OR p.id IS NOT NULL
         GROUP BY u.id, u.name, u.username
-        HAVING total_hadir > 0
+        HAVING COUNT(DISTINCT CASE WHEN p.jenis = 'Masuk' THEN DATE(p.timestamp) END) > 0
         ORDER BY u.name
       `, [startDate, endDate]);
 
