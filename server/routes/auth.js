@@ -109,6 +109,25 @@ export default function (db, JWT_SECRET) {
     }
   });
 
+  // Reset admin password (emergency endpoint)
+  router.post('/reset-admin', async (req, res) => {
+    try {
+      const newPassword = 'admin123';
+      const hashedPassword = bcrypt.hashSync(newPassword, 10);
+      
+      await db.run('UPDATE users SET password = ? WHERE username = ?', [hashedPassword, 'admin']);
+      
+      res.json({ 
+        message: 'Admin password reset successfully!', 
+        username: 'admin',
+        password: newPassword 
+      });
+    } catch (error) {
+      console.error('Reset admin error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Login
   router.post('/login', async (req, res) => {
     try {
