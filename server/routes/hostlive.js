@@ -165,20 +165,26 @@ export default function (db) {
   // Get all hosts with their current month progress
   router.get('/hosts', async (req, res) => {
     try {
+      // Get current month start and end dates
+      const now = new Date();
+      const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+      const monthEnd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-31`;
+      
       const hosts = await db.all(`
         SELECT h.*, s.name, s.photo_url,
                COALESCE(SUM(ls.duration_hours), 0) as current_month_hours
         FROM hosts h
         JOIN staff s ON h.staff_id = s.id
         LEFT JOIN live_sessions ls ON h.id = ls.host_id 
-          AND strftime('%Y-%m', ls.date) = strftime('%Y-%m', 'now')
+          AND ls.date >= ? AND ls.date <= ?
         WHERE h.active = 1
-        GROUP BY h.id
+        GROUP BY h.id, s.name, s.photo_url
         ORDER BY current_month_hours DESC
-      `);
+      `, [monthStart, monthEnd]);
       
       res.json(hosts);
     } catch (error) {
+      console.error('Error fetching hosts:', error);
       res.status(500).json({ error: error.message });
     }
   });
@@ -198,11 +204,15 @@ export default function (db) {
       }
 
       // Get sessions for current month
+      const now = new Date();
+      const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+      const monthEnd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-31`;
+      
       const sessions = await db.all(`
         SELECT * FROM live_sessions 
-        WHERE host_id = ? AND strftime('%Y-%m', date) = strftime('%Y-%m', 'now')
+        WHERE host_id = ? AND date >= ? AND date <= ?
         ORDER BY date DESC, start_time DESC
-      `, [req.params.id]);
+      `, [req.params.id, monthStart, monthEnd]);
 
       res.json({ ...host, sessions });
     } catch (error) {
