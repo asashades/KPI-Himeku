@@ -19,13 +19,15 @@ export default function (db) {
     try {
       const today = new Date().toISOString().split('T')[0];
       const currentMonth = new Date().toISOString().slice(0, 7);
+      const monthStart = currentMonth + '-01';
+      const monthEnd = currentMonth + '-31';
 
       // Get KPI targets from settings
       const hostLiveKpi = await getKpiTarget(3); // Host Live = dept 3
       const contentCreatorKpi = await getKpiTarget(4); // Content Creator = dept 4
       const warehouseKpi = await getKpiTarget(2); // Warehouse = dept 2
 
-      // Host Live stats
+      // Host Live stats (PostgreSQL compatible)
       const hostLiveStats = await db.get(`
         SELECT 
           COUNT(DISTINCT h.id) as total_hosts,
@@ -33,9 +35,9 @@ export default function (db) {
           COALESCE(SUM(ls.duration_hours), 0) as total_current
         FROM hosts h
         LEFT JOIN live_sessions ls ON h.id = ls.host_id 
-          AND strftime('%Y-%m', ls.date) = ?
+          AND ls.date >= ? AND ls.date <= ?
         WHERE h.active = 1
-      `, [currentMonth]);
+      `, [monthStart, monthEnd]);
 
       // Use KPI setting target if available, else use sum of individual targets
       const hostLiveTarget = hostLiveKpi.target_hours || hostLiveStats.total_target || 100;
@@ -49,9 +51,9 @@ export default function (db) {
             COUNT(cp.id) as total_posts
           FROM content_creators cc
           LEFT JOIN content_posts cp ON cc.id = cp.creator_id 
-            AND strftime('%Y-%m', cp.created_at) = ?
+            AND cp.created_at >= ? AND cp.created_at <= ?
           WHERE cc.active = 1
-        `, [currentMonth]);
+        `, [monthStart, monthEnd + ' 23:59:59']);
         contentCreatorStats = ccStats || contentCreatorStats;
       } catch (e) {
         // Table might not exist
@@ -76,8 +78,8 @@ export default function (db) {
             SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
             SUM(CASE WHEN status = 'resolved' THEN 1 ELSE 0 END) as resolved
           FROM warehouse_wrong_orders
-          WHERE strftime('%Y-%m', date) = ?
-        `, [currentMonth]) || wrongOrderStats;
+          WHERE date >= ? AND date <= ?
+        `, [monthStart, monthEnd]) || wrongOrderStats;
       } catch (e) {}
       
       const warehouseWrongOrderTarget = warehouseKpi.max_wrong_orders || 5; // Max acceptable wrong orders
@@ -116,8 +118,8 @@ export default function (db) {
           SUM(CASE WHEN id IS NOT NULL THEN 1 ELSE 0 END) as opening_count,
           COALESCE(SUM(daily_sales), 0) as total_sales
         FROM crewstore_closing
-        WHERE strftime('%Y-%m', date) = ?
-      `, [currentMonth]) || { total_days: 0, opening_count: 0, total_sales: 0 };
+        WHERE date >= ? AND date <= ?
+      `, [monthStart, monthEnd]) || { total_days: 0, opening_count: 0, total_sales: 0 };
 
       // Count days with both opening and closing
       const crewstoreCompletionStats = await db.get(`
@@ -126,30 +128,30 @@ export default function (db) {
           COUNT(DISTINCT cc.date) as closing_days
         FROM crewstore_opening co
         LEFT JOIN crewstore_closing cc ON co.date = cc.date
-        WHERE strftime('%Y-%m', co.date) = ?
-      `, [currentMonth]) || { opening_days: 0, closing_days: 0 };
+        WHERE co.date >= ? AND co.date <= ?
+      `, [monthStart, monthEnd]) || { opening_days: 0, closing_days: 0 };
 
       // On-time opening check (before 10:00 AM considered on-time)
       const onTimeOpeningsResult = await db.get(`
         SELECT COUNT(*) as count
         FROM crewstore_opening
-        WHERE strftime('%Y-%m', date) = ? AND open_time <= '10:00'
-      `, [currentMonth]);
+        WHERE date >= ? AND date <= ? AND open_time <= '10:00'
+      `, [monthStart, monthEnd]);
       const onTimeOpenings = onTimeOpeningsResult?.count || 0;
 
       // Calendar data - dates with any activity
       const activeDates = await db.all(`
         SELECT DISTINCT date FROM (
-          SELECT date FROM live_sessions WHERE strftime('%Y-%m', date) = ?
+          SELECT date FROM live_sessions WHERE date >= ? AND date <= ?
           UNION
-          SELECT date FROM warehouse_checklists WHERE strftime('%Y-%m', date) = ?
+          SELECT date FROM warehouse_checklists WHERE date >= ? AND date <= ?
           UNION
-          SELECT date FROM crewstore_opening WHERE strftime('%Y-%m', date) = ?
+          SELECT date FROM crewstore_opening WHERE date >= ? AND date <= ?
           UNION
-          SELECT date FROM crewstore_closing WHERE strftime('%Y-%m', date) = ?
-        )
+          SELECT date FROM crewstore_closing WHERE date >= ? AND date <= ?
+        ) AS combined_dates
         ORDER BY date
-      `, [currentMonth, currentMonth, currentMonth, currentMonth]);
+      `, [monthStart, monthEnd, monthStart, monthEnd, monthStart, monthEnd, monthStart, monthEnd]);
 
       res.json({
         hostLive: {
