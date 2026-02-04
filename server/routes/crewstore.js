@@ -4,7 +4,7 @@ export default function (db) {
   const router = express.Router();
 
   // Get opening checklists
-  router.get('/opening', (req, res) => {
+  router.get('/opening', async (req, res) => {
     try {
       const { date } = req.query;
       let query = `
@@ -22,7 +22,7 @@ export default function (db) {
 
       query += ' ORDER BY co.date DESC';
 
-      const checklists = db.prepare(query).all(...params);
+      const checklists = await db.all(query, params);
       
       checklists.forEach(checklist => {
         checklist.items = JSON.parse(checklist.items);
@@ -35,14 +35,14 @@ export default function (db) {
   });
 
   // Create opening checklist
-  router.post('/opening', (req, res) => {
+  router.post('/opening', async (req, res) => {
     try {
       const { date, open_time, items, tap_status, tap_notes } = req.body;
       
-      const result = db.prepare(`
+      const result = await db.run(`
         INSERT INTO crewstore_opening (date, open_time, items, tap_status, tap_notes, completed_by, status)
         VALUES (?, ?, ?, ?, ?, ?, 'completed')
-      `).run(date, open_time, JSON.stringify(items), tap_status, tap_notes, req.user.id);
+      `, [date, open_time, JSON.stringify(items), tap_status, tap_notes, req.user.id]);
 
       res.json({ 
         id: result.lastInsertRowid, 
@@ -58,7 +58,7 @@ export default function (db) {
   });
 
   // Get closing checklists
-  router.get('/closing', (req, res) => {
+  router.get('/closing', async (req, res) => {
     try {
       const { date } = req.query;
       let query = `
@@ -76,7 +76,7 @@ export default function (db) {
 
       query += ' ORDER BY cc.date DESC';
 
-      const checklists = db.prepare(query).all(...params);
+      const checklists = await db.all(query, params);
       
       checklists.forEach(checklist => {
         checklist.items = JSON.parse(checklist.items);
@@ -89,15 +89,15 @@ export default function (db) {
   });
 
   // Create closing checklist
-  router.post('/closing', (req, res) => {
+  router.post('/closing', async (req, res) => {
     try {
       const { date, items, additional_notes, next_shift_morning, next_shift_afternoon, next_shift_stock, daily_sales } = req.body;
       
-      const result = db.prepare(`
+      const result = await db.run(`
         INSERT INTO crewstore_closing 
         (date, items, additional_notes, next_shift_morning, next_shift_afternoon, next_shift_stock, daily_sales, completed_by, status)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'completed')
-      `).run(date, JSON.stringify(items), additional_notes, next_shift_morning, next_shift_afternoon, next_shift_stock, daily_sales || 0, req.user.id);
+      `, [date, JSON.stringify(items), additional_notes, next_shift_morning, next_shift_afternoon, next_shift_stock, daily_sales || 0, req.user.id]);
 
       res.json({ 
         id: result.lastInsertRowid, 
@@ -115,12 +115,12 @@ export default function (db) {
   });
 
   // Get today's status
-  router.get('/today', (req, res) => {
+  router.get('/today', async (req, res) => {
     try {
       const today = new Date().toISOString().split('T')[0];
       
-      const opening = db.prepare('SELECT * FROM crewstore_opening WHERE date = ?').get(today);
-      const closing = db.prepare('SELECT * FROM crewstore_closing WHERE date = ?').get(today);
+      const opening = await db.get('SELECT * FROM crewstore_opening WHERE date = ?', [today]);
+      const closing = await db.get('SELECT * FROM crewstore_closing WHERE date = ?', [today]);
 
       if (opening) opening.items = JSON.parse(opening.items);
       if (closing) closing.items = JSON.parse(closing.items);
@@ -138,7 +138,7 @@ export default function (db) {
   });
 
   // Update opening checklist
-  router.put('/opening/:id', (req, res) => {
+  router.put('/opening/:id', async (req, res) => {
     try {
       const { open_time, items, tap_status, tap_notes, status } = req.body;
       
@@ -168,8 +168,7 @@ export default function (db) {
 
       params.push(req.params.id);
 
-      db.prepare(`UPDATE crewstore_opening SET ${updates.join(', ')} WHERE id = ?`)
-        .run(...params);
+      await db.run(`UPDATE crewstore_opening SET ${updates.join(', ')} WHERE id = ?`, params);
 
       res.json({ id: req.params.id, message: 'Opening checklist updated' });
     } catch (error) {
@@ -178,7 +177,7 @@ export default function (db) {
   });
 
   // Update closing checklist
-  router.put('/closing/:id', (req, res) => {
+  router.put('/closing/:id', async (req, res) => {
     try {
       const { items, additional_notes, next_shift_morning, next_shift_afternoon, next_shift_stock, daily_sales, status } = req.body;
       
@@ -216,8 +215,7 @@ export default function (db) {
 
       params.push(req.params.id);
 
-      db.prepare(`UPDATE crewstore_closing SET ${updates.join(', ')} WHERE id = ?`)
-        .run(...params);
+      await db.run(`UPDATE crewstore_closing SET ${updates.join(', ')} WHERE id = ?`, params);
 
       res.json({ id: req.params.id, message: 'Closing checklist updated' });
     } catch (error) {
@@ -226,7 +224,7 @@ export default function (db) {
   });
 
   // Get history of checklists
-  router.get('/history', (req, res) => {
+  router.get('/history', async (req, res) => {
     try {
       const { startDate, endDate } = req.query;
       
@@ -248,7 +246,7 @@ export default function (db) {
         openingParams.push(endDate);
       }
 
-      const openingList = db.prepare(openingQuery).all(...openingParams);
+      const openingList = await db.all(openingQuery, openingParams);
       openingList.forEach(item => {
         item.items = JSON.parse(item.items);
         item.checked_count = item.items.filter(i => i.checked).length;
@@ -273,7 +271,7 @@ export default function (db) {
         closingParams.push(endDate);
       }
 
-      const closingList = db.prepare(closingQuery).all(...closingParams);
+      const closingList = await db.all(closingQuery, closingParams);
       closingList.forEach(item => {
         item.items = JSON.parse(item.items);
         item.checked_count = item.items.filter(i => i.checked).length;

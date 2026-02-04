@@ -4,7 +4,7 @@ export default function (db) {
   const router = express.Router();
 
   // Get all templates
-  router.get('/', (req, res) => {
+  router.get('/', async (req, res) => {
     try {
       const { department_id, type, active } = req.query;
       let query = 'SELECT ct.*, d.name as department_name FROM checklist_templates ct JOIN departments d ON ct.department_id = d.id WHERE 1=1';
@@ -25,7 +25,7 @@ export default function (db) {
 
       query += ' ORDER BY ct.department_id, ct.name';
 
-      const templates = db.prepare(query).all(...params);
+      const templates = await db.all(query, params);
       
       templates.forEach(template => {
         template.items = JSON.parse(template.items);
@@ -39,9 +39,9 @@ export default function (db) {
   });
 
   // Get template by ID
-  router.get('/:id', (req, res) => {
+  router.get('/:id', async (req, res) => {
     try {
-      const template = db.prepare('SELECT * FROM checklist_templates WHERE id = ?').get(req.params.id);
+      const template = await db.get('SELECT * FROM checklist_templates WHERE id = ?', [req.params.id]);
       if (!template) {
         return res.status(404).json({ error: 'Template not found' });
       }
@@ -53,14 +53,14 @@ export default function (db) {
   });
 
   // Create template
-  router.post('/', (req, res) => {
+  router.post('/', async (req, res) => {
     try {
       const { department_id, name, type, items, tap_enabled } = req.body;
       
-      const result = db.prepare(`
+      const result = await db.run(`
         INSERT INTO checklist_templates (department_id, name, type, items, tap_enabled)
         VALUES (?, ?, ?, ?, ?)
-      `).run(department_id, name, type, JSON.stringify(items), tap_enabled !== false ? 1 : 0);
+      `, [department_id, name, type, JSON.stringify(items), tap_enabled !== false ? 1 : 0]);
 
       res.json({ 
         id: result.lastInsertRowid, 
@@ -76,7 +76,7 @@ export default function (db) {
   });
 
   // Update template
-  router.put('/:id', (req, res) => {
+  router.put('/:id', async (req, res) => {
     try {
       const { name, type, items, active, tap_enabled } = req.body;
       
@@ -106,8 +106,7 @@ export default function (db) {
 
       params.push(req.params.id);
 
-      db.prepare(`UPDATE checklist_templates SET ${updates.join(', ')} WHERE id = ?`)
-        .run(...params);
+      await db.run(`UPDATE checklist_templates SET ${updates.join(', ')} WHERE id = ?`, params);
 
       res.json({ id: req.params.id, message: 'Template updated' });
     } catch (error) {
@@ -116,9 +115,9 @@ export default function (db) {
   });
 
   // Delete template (soft delete)
-  router.delete('/:id', (req, res) => {
+  router.delete('/:id', async (req, res) => {
     try {
-      db.prepare('UPDATE checklist_templates SET active = 0 WHERE id = ?').run(req.params.id);
+      await db.run('UPDATE checklist_templates SET active = 0 WHERE id = ?', [req.params.id]);
       res.json({ message: 'Template deactivated' });
     } catch (error) {
       res.status(500).json({ error: error.message });

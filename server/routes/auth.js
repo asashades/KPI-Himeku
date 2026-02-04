@@ -6,10 +6,10 @@ export default function (db, JWT_SECRET) {
   const router = express.Router();
 
   // Login
-  router.post('/login', (req, res) => {
+  router.post('/login', async (req, res) => {
     try {
       const { username, password } = req.body;
-      const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
+      const user = await db.get('SELECT * FROM users WHERE username = ?', [username]);
       
       if (!user || !bcrypt.compareSync(password, user.password)) {
         return res.status(401).json({ error: 'Invalid credentials' });
@@ -33,19 +33,21 @@ export default function (db, JWT_SECRET) {
         }
       });
     } catch (error) {
+      console.error('Login error:', error);
       res.status(500).json({ error: error.message });
     }
   });
 
   // Register (admin only in production)
-  router.post('/register', (req, res) => {
+  router.post('/register', async (req, res) => {
     try {
       const { username, password, name, email, role, department_id } = req.body;
       const hashedPassword = bcrypt.hashSync(password, 10);
       
-      const result = db.prepare(
-        'INSERT INTO users (username, password, name, email, role, department_id) VALUES (?, ?, ?, ?, ?, ?)'
-      ).run(username, hashedPassword, name, email || null, role || 'staff', department_id || null);
+      const result = await db.run(
+        'INSERT INTO users (username, password, name, email, role, department_id) VALUES (?, ?, ?, ?, ?, ?)',
+        [username, hashedPassword, name, email || null, role || 'staff', department_id || null]
+      );
 
       res.json({ id: result.lastInsertRowid, username, name, email, role, department_id });
     } catch (error) {
@@ -54,14 +56,14 @@ export default function (db, JWT_SECRET) {
   });
 
   // Get current user
-  router.get('/me', (req, res) => {
+  router.get('/me', async (req, res) => {
     const token = req.headers.authorization?.split(' ')[1];
     if (!token) {
       return res.status(401).json({ error: 'No token provided' });
     }
     try {
       const decoded = jwt.verify(token, JWT_SECRET);
-      const user = db.prepare('SELECT id, username, name, email, role, department_id FROM users WHERE id = ?').get(decoded.id);
+      const user = await db.get('SELECT id, username, name, email, role, department_id FROM users WHERE id = ?', [decoded.id]);
       res.json(user);
     } catch (error) {
       res.status(401).json({ error: 'Invalid token' });
@@ -69,7 +71,7 @@ export default function (db, JWT_SECRET) {
   });
 
   // Get all users (admin only)
-  router.get('/users', (req, res) => {
+  router.get('/users', async (req, res) => {
     const token = req.headers.authorization?.split(' ')[1];
     if (!token) {
       return res.status(401).json({ error: 'No token provided' });
@@ -79,7 +81,7 @@ export default function (db, JWT_SECRET) {
       if (decoded.role !== 'admin') {
         return res.status(403).json({ error: 'Admin only' });
       }
-      const users = db.prepare('SELECT id, username, name, email, role, department_id, created_at FROM users ORDER BY created_at DESC').all();
+      const users = await db.all('SELECT id, username, name, email, role, department_id, created_at FROM users ORDER BY created_at DESC');
       res.json(users);
     } catch (error) {
       res.status(401).json({ error: 'Invalid token' });
@@ -87,7 +89,7 @@ export default function (db, JWT_SECRET) {
   });
 
   // Update user (admin only)
-  router.put('/users/:id', (req, res) => {
+  router.put('/users/:id', async (req, res) => {
     const token = req.headers.authorization?.split(' ')[1];
     if (!token) {
       return res.status(401).json({ error: 'No token provided' });
@@ -113,7 +115,7 @@ export default function (db, JWT_SECRET) {
       }
 
       params.push(req.params.id);
-      db.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`).run(...params);
+      await db.run(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`, params);
 
       res.json({ message: 'User updated' });
     } catch (error) {
@@ -122,7 +124,7 @@ export default function (db, JWT_SECRET) {
   });
 
   // Delete user (admin only)
-  router.delete('/users/:id', (req, res) => {
+  router.delete('/users/:id', async (req, res) => {
     const token = req.headers.authorization?.split(' ')[1];
     if (!token) {
       return res.status(401).json({ error: 'No token provided' });
@@ -133,7 +135,7 @@ export default function (db, JWT_SECRET) {
         return res.status(403).json({ error: 'Admin only' });
       }
 
-      db.prepare('DELETE FROM users WHERE id = ?').run(req.params.id);
+      await db.run('DELETE FROM users WHERE id = ?', [req.params.id]);
       res.json({ message: 'User deleted' });
     } catch (error) {
       res.status(500).json({ error: error.message });

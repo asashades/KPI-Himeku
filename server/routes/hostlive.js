@@ -35,7 +35,7 @@ export default function (db) {
       });
 
       // Get staff data for email validation
-      const staffList = db.prepare('SELECT name, email FROM staff WHERE active = 1').all();
+      const staffList = await db.all('SELECT name, email FROM staff WHERE active = 1');
       const staffMap = {};
       staffList.forEach(s => {
         if (s.email) staffMap[s.email.toLowerCase()] = s.name;
@@ -126,7 +126,7 @@ export default function (db) {
       }
 
       // Get staff data for email validation
-      const staffList = db.prepare('SELECT name, email FROM staff WHERE active = 1').all();
+      const staffList = await db.all('SELECT name, email FROM staff WHERE active = 1');
       const staffMap = {};
       staffList.forEach(s => {
         if (s.email) staffMap[s.email.toLowerCase()] = s.name;
@@ -163,9 +163,9 @@ export default function (db) {
   });
 
   // Get all hosts with their current month progress
-  router.get('/hosts', (req, res) => {
+  router.get('/hosts', async (req, res) => {
     try {
-      const hosts = db.prepare(`
+      const hosts = await db.all(`
         SELECT h.*, s.name, s.photo_url,
                COALESCE(SUM(ls.duration_hours), 0) as current_month_hours
         FROM hosts h
@@ -175,7 +175,7 @@ export default function (db) {
         WHERE h.active = 1
         GROUP BY h.id
         ORDER BY current_month_hours DESC
-      `).all();
+      `);
       
       res.json(hosts);
     } catch (error) {
@@ -184,25 +184,25 @@ export default function (db) {
   });
 
   // Get host by ID with full details
-  router.get('/hosts/:id', (req, res) => {
+  router.get('/hosts/:id', async (req, res) => {
     try {
-      const host = db.prepare(`
+      const host = await db.get(`
         SELECT h.*, s.name, s.photo_url
         FROM hosts h
         JOIN staff s ON h.staff_id = s.id
         WHERE h.id = ?
-      `).get(req.params.id);
+      `, [req.params.id]);
 
       if (!host) {
         return res.status(404).json({ error: 'Host not found' });
       }
 
       // Get sessions for current month
-      const sessions = db.prepare(`
+      const sessions = await db.all(`
         SELECT * FROM live_sessions 
         WHERE host_id = ? AND strftime('%Y-%m', date) = strftime('%Y-%m', 'now')
         ORDER BY date DESC, start_time DESC
-      `).all(req.params.id);
+      `, [req.params.id]);
 
       res.json({ ...host, sessions });
     } catch (error) {
@@ -211,20 +211,18 @@ export default function (db) {
   });
 
   // Create or update host
-  router.post('/hosts', (req, res) => {
+  router.post('/hosts', async (req, res) => {
     try {
       const { staff_id, monthly_target_hours } = req.body;
       
       // Check if host already exists for this staff
-      const existing = db.prepare('SELECT id FROM hosts WHERE staff_id = ?').get(staff_id);
+      const existing = await db.get('SELECT id FROM hosts WHERE staff_id = ?', [staff_id]);
       
       if (existing) {
-        db.prepare('UPDATE hosts SET monthly_target_hours = ? WHERE id = ?')
-          .run(monthly_target_hours, existing.id);
+        await db.run('UPDATE hosts SET monthly_target_hours = ? WHERE id = ?', [monthly_target_hours, existing.id]);
         res.json({ id: existing.id, staff_id, monthly_target_hours });
       } else {
-        const result = db.prepare('INSERT INTO hosts (staff_id, monthly_target_hours) VALUES (?, ?)')
-          .run(staff_id, monthly_target_hours);
+        const result = await db.run('INSERT INTO hosts (staff_id, monthly_target_hours) VALUES (?, ?)', [staff_id, monthly_target_hours]);
         res.json({ id: result.lastInsertRowid, staff_id, monthly_target_hours });
       }
     } catch (error) {
@@ -233,7 +231,7 @@ export default function (db) {
   });
 
   // Add live session
-  router.post('/sessions', (req, res) => {
+  router.post('/sessions', async (req, res) => {
     try {
       const { host_id, date, start_time, end_time, notes } = req.body;
       
@@ -247,10 +245,10 @@ export default function (db) {
         duration += 24;
       }
 
-      const result = db.prepare(`
+      const result = await db.run(`
         INSERT INTO live_sessions (host_id, date, start_time, end_time, duration_hours, notes, created_by)
         VALUES (?, ?, ?, ?, ?, ?, ?)
-      `).run(host_id, date, start_time, end_time, duration, notes, req.user.id);
+      `, [host_id, date, start_time, end_time, duration, notes, req.user.id]);
 
       res.json({ 
         id: result.lastInsertRowid, 
@@ -267,7 +265,7 @@ export default function (db) {
   });
 
   // Get sessions by date range
-  router.get('/sessions', (req, res) => {
+  router.get('/sessions', async (req, res) => {
     try {
       const { start_date, end_date, host_id } = req.query;
       let query = 'SELECT ls.*, h.staff_id, s.name as host_name FROM live_sessions ls JOIN hosts h ON ls.host_id = h.id JOIN staff s ON h.staff_id = s.id WHERE 1=1';
@@ -288,7 +286,7 @@ export default function (db) {
 
       query += ' ORDER BY ls.date DESC, ls.start_time DESC';
 
-      const sessions = db.prepare(query).all(...params);
+      const sessions = await db.all(query, params);
       res.json(sessions);
     } catch (error) {
       res.status(500).json({ error: error.message });
@@ -296,9 +294,9 @@ export default function (db) {
   });
 
   // Delete session
-  router.delete('/sessions/:id', (req, res) => {
+  router.delete('/sessions/:id', async (req, res) => {
     try {
-      db.prepare('DELETE FROM live_sessions WHERE id = ?').run(req.params.id);
+      await db.run('DELETE FROM live_sessions WHERE id = ?', [req.params.id]);
       res.json({ message: 'Session deleted' });
     } catch (error) {
       res.status(500).json({ error: error.message });
@@ -306,11 +304,10 @@ export default function (db) {
   });
 
   // Update host target
-  router.put('/hosts/:id', (req, res) => {
+  router.put('/hosts/:id', async (req, res) => {
     try {
       const { monthly_target_hours } = req.body;
-      db.prepare('UPDATE hosts SET monthly_target_hours = ? WHERE id = ?')
-        .run(monthly_target_hours, req.params.id);
+      await db.run('UPDATE hosts SET monthly_target_hours = ? WHERE id = ?', [monthly_target_hours, req.params.id]);
       res.json({ message: 'Host updated successfully bestie! ✨' });
     } catch (error) {
       res.status(500).json({ error: error.message });
@@ -318,12 +315,12 @@ export default function (db) {
   });
 
   // Delete host
-  router.delete('/hosts/:id', (req, res) => {
+  router.delete('/hosts/:id', async (req, res) => {
     try {
       // Delete all sessions for this host first
-      db.prepare('DELETE FROM live_sessions WHERE host_id = ?').run(req.params.id);
+      await db.run('DELETE FROM live_sessions WHERE host_id = ?', [req.params.id]);
       // Then delete the host
-      db.prepare('DELETE FROM hosts WHERE id = ?').run(req.params.id);
+      await db.run('DELETE FROM hosts WHERE id = ?', [req.params.id]);
       res.json({ message: 'Host deleted successfully!' });
     } catch (error) {
       res.status(500).json({ error: error.message });
@@ -331,13 +328,13 @@ export default function (db) {
   });
 
   // Get imported data
-  router.get('/imports', (req, res) => {
+  router.get('/imports', async (req, res) => {
     try {
-      const imports = db.prepare(`
+      const imports = await db.all(`
         SELECT * FROM host_live_imports 
         ORDER BY tanggal_live DESC, created_at DESC
         LIMIT 500
-      `).all();
+      `);
       res.json(imports);
     } catch (error) {
       res.status(500).json({ error: error.message });
@@ -345,7 +342,7 @@ export default function (db) {
   });
 
   // Bulk import data from spreadsheet
-  router.post('/imports', (req, res) => {
+  router.post('/imports', async (req, res) => {
     try {
       const { records } = req.body;
       
@@ -353,32 +350,26 @@ export default function (db) {
         return res.status(400).json({ error: 'No records provided' });
       }
 
-      const stmt = db.prepare(`
-        INSERT INTO host_live_imports 
-        (rekap_id, email_host, nama_host, tanggal_live, jam_mulai, jam_selesai, durasi_jam, gaji, created_by)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `);
+      let count = 0;
+      for (const rec of records) {
+        await db.run(`
+          INSERT INTO host_live_imports 
+          (rekap_id, email_host, nama_host, tanggal_live, jam_mulai, jam_selesai, durasi_jam, gaji, created_by)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `, [
+          rec.rekap_id,
+          rec.email_host,
+          rec.nama_host,
+          rec.tanggal_live,
+          rec.jam_mulai,
+          rec.jam_selesai,
+          rec.durasi_jam || 0,
+          rec.gaji || 0,
+          req.user?.id || 1
+        ]);
+        count++;
+      }
 
-      const insertMany = db.transaction((records) => {
-        let count = 0;
-        for (const rec of records) {
-          stmt.run(
-            rec.rekap_id,
-            rec.email_host,
-            rec.nama_host,
-            rec.tanggal_live,
-            rec.jam_mulai,
-            rec.jam_selesai,
-            rec.durasi_jam || 0,
-            rec.gaji || 0,
-            req.user?.id || 1
-          );
-          count++;
-        }
-        return count;
-      });
-
-      const count = insertMany(records);
       res.json({ message: `${count} records imported successfully! 🚀`, count });
     } catch (error) {
       res.status(500).json({ error: error.message });
@@ -386,9 +377,9 @@ export default function (db) {
   });
 
   // Delete imported record
-  router.delete('/imports/:id', (req, res) => {
+  router.delete('/imports/:id', async (req, res) => {
     try {
-      db.prepare('DELETE FROM host_live_imports WHERE id = ?').run(req.params.id);
+      await db.run('DELETE FROM host_live_imports WHERE id = ?', [req.params.id]);
       res.json({ message: 'Import deleted' });
     } catch (error) {
       res.status(500).json({ error: error.message });

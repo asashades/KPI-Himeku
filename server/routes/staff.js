@@ -5,7 +5,7 @@ export default function (db) {
   const router = express.Router();
 
   // Get all staff
-  router.get('/', (req, res) => {
+  router.get('/', async (req, res) => {
     try {
       const { department_id, active } = req.query;
       let query = `
@@ -28,7 +28,7 @@ export default function (db) {
 
       query += ' ORDER BY s.name';
 
-      const staff = db.prepare(query).all(...params);
+      const staff = await db.all(query, params);
       res.json(staff);
     } catch (error) {
       res.status(500).json({ error: error.message });
@@ -36,15 +36,15 @@ export default function (db) {
   });
 
   // Get staff by ID
-  router.get('/:id', (req, res) => {
+  router.get('/:id', async (req, res) => {
     try {
-      const staff = db.prepare(`
+      const staff = await db.get(`
         SELECT s.*, d.name as department_name, u.id as user_id, u.username
         FROM staff s 
         LEFT JOIN departments d ON s.department_id = d.id 
         LEFT JOIN users u ON s.email = u.email
         WHERE s.id = ?
-      `).get(req.params.id);
+      `, [req.params.id]);
       if (!staff) {
         return res.status(404).json({ error: 'Staff not found' });
       }
@@ -55,23 +55,23 @@ export default function (db) {
   });
 
   // Create staff - also creates user account if email provided
-  router.post('/', (req, res) => {
+  router.post('/', async (req, res) => {
     try {
       const { name, email, photo_url, department_id, position, role, join_date, phone, bank_name, bank_account, city, active, password } = req.body;
       
       // Check if email already exists in staff
       if (email) {
-        const existingStaff = db.prepare('SELECT id FROM staff WHERE email = ?').get(email);
+        const existingStaff = await db.get('SELECT id FROM staff WHERE email = ?', [email]);
         if (existingStaff) {
           return res.status(400).json({ error: 'Email sudah terdaftar di staff lain' });
         }
       }
       
       // Create staff record
-      const result = db.prepare(`
+      const result = await db.run(`
         INSERT INTO staff (name, email, photo_url, department_id, position, role, join_date, phone, bank_name, bank_account, city, active) 
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(
+      `, [
         name, 
         email || null, 
         photo_url || null, 
@@ -84,7 +84,7 @@ export default function (db) {
         bank_account || null, 
         city || null,
         active !== undefined ? (active ? 1 : 0) : 1
-      );
+      ]);
 
       const staffId = result.lastInsertRowid;
       let userId = null;
@@ -93,7 +93,7 @@ export default function (db) {
       // If email provided, also create user account for login
       if (email) {
         // Check if user with this email already exists
-        const existingUser = db.prepare('SELECT id, username FROM users WHERE email = ?').get(email);
+        const existingUser = await db.get('SELECT id, username FROM users WHERE email = ?', [email]);
         
         if (existingUser) {
           // Link to existing user
@@ -107,7 +107,7 @@ export default function (db) {
           let counter = 1;
           
           // Ensure unique username
-          while (db.prepare('SELECT id FROM users WHERE username = ?').get(newUsername)) {
+          while (await db.get('SELECT id FROM users WHERE username = ?', [newUsername])) {
             newUsername = `${baseUsername}${counter}`;
             counter++;
           }
@@ -116,10 +116,10 @@ export default function (db) {
           const defaultPassword = password || newUsername;
           const hashedPassword = bcrypt.hashSync(defaultPassword, 10);
           
-          const userResult = db.prepare(`
+          const userResult = await db.run(`
             INSERT INTO users (username, password, name, email, role, department_id)
             VALUES (?, ?, ?, ?, ?, ?)
-          `).run(newUsername, hashedPassword, name, email, 'staff', department_id || null);
+          `, [newUsername, hashedPassword, name, email, 'staff', department_id || null]);
           
           userId = userResult.lastInsertRowid;
           username = newUsername;
@@ -145,19 +145,19 @@ export default function (db) {
   });
 
   // Update staff - also updates linked user account
-  router.put('/:id', (req, res) => {
+  router.put('/:id', async (req, res) => {
     try {
       const { name, email, photo_url, department_id, position, role, join_date, phone, bank_name, bank_account, city, active, password } = req.body;
       
       // Get current staff data
-      const currentStaff = db.prepare('SELECT * FROM staff WHERE id = ?').get(req.params.id);
+      const currentStaff = await db.get('SELECT * FROM staff WHERE id = ?', [req.params.id]);
       if (!currentStaff) {
         return res.status(404).json({ error: 'Staff not found' });
       }
 
       // Check if new email conflicts with other staff
       if (email && email !== currentStaff.email) {
-        const existingStaff = db.prepare('SELECT id FROM staff WHERE email = ? AND id != ?').get(email, req.params.id);
+        const existingStaff = await db.get('SELECT id FROM staff WHERE email = ? AND id != ?', [email, req.params.id]);
         if (existingStaff) {
           return res.status(400).json({ error: 'Email sudah terdaftar di staff lain' });
         }
@@ -182,7 +182,7 @@ export default function (db) {
       params.push(req.params.id);
 
       if (updates.length > 0) {
-        db.prepare(`UPDATE staff SET ${updates.join(', ')} WHERE id = ?`).run(...params);
+        await db.run(`UPDATE staff SET ${updates.join(', ')} WHERE id = ?`, params);
       }
 
       // Handle user account sync
@@ -190,7 +190,7 @@ export default function (db) {
       
       if (currentStaff.email) {
         // Update existing linked user
-        const linkedUser = db.prepare('SELECT id FROM users WHERE email = ?').get(currentStaff.email);
+        const linkedUser = await db.get('SELECT id FROM users WHERE email = ?', [currentStaff.email]);
         if (linkedUser) {
           const userUpdates = [];
           const userParams = [];
@@ -208,18 +208,18 @@ export default function (db) {
           
           if (userUpdates.length > 0) {
             userParams.push(linkedUser.id);
-            db.prepare(`UPDATE users SET ${userUpdates.join(', ')} WHERE id = ?`).run(...userParams);
+            await db.run(`UPDATE users SET ${userUpdates.join(', ')} WHERE id = ?`, userParams);
             userMessage = 'User account also updated';
           }
         }
       } else if (email) {
         // New email added, create user account
-        const existingUser = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
+        const existingUser = await db.get('SELECT id FROM users WHERE email = ?', [email]);
         if (!existingUser) {
           const baseUsername = email.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
           let newUsername = baseUsername;
           let counter = 1;
-          while (db.prepare('SELECT id FROM users WHERE username = ?').get(newUsername)) {
+          while (await db.get('SELECT id FROM users WHERE username = ?', [newUsername])) {
             newUsername = `${baseUsername}${counter}`;
             counter++;
           }
@@ -227,10 +227,10 @@ export default function (db) {
           const defaultPassword = password || newUsername;
           const hashedPassword = bcrypt.hashSync(defaultPassword, 10);
           
-          db.prepare(`
+          await db.run(`
             INSERT INTO users (username, password, name, email, role, department_id)
             VALUES (?, ?, ?, ?, ?, ?)
-          `).run(newUsername, hashedPassword, name || currentStaff.name, email, 'staff', department_id || currentStaff.department_id);
+          `, [newUsername, hashedPassword, name || currentStaff.name, email, 'staff', department_id || currentStaff.department_id]);
           
           userMessage = `User account created with username: ${newUsername}`;
         }
@@ -243,16 +243,16 @@ export default function (db) {
   });
 
   // Delete staff - also deactivates linked user account
-  router.delete('/:id', (req, res) => {
+  router.delete('/:id', async (req, res) => {
     try {
-      const staff = db.prepare('SELECT email FROM staff WHERE id = ?').get(req.params.id);
+      const staff = await db.get('SELECT email FROM staff WHERE id = ?', [req.params.id]);
       
       // Deactivate linked user instead of deleting
       if (staff?.email) {
-        db.prepare('DELETE FROM users WHERE email = ?').run(staff.email);
+        await db.run('DELETE FROM users WHERE email = ?', [staff.email]);
       }
       
-      db.prepare('DELETE FROM staff WHERE id = ?').run(req.params.id);
+      await db.run('DELETE FROM staff WHERE id = ?', [req.params.id]);
       res.json({ message: 'Staff and linked user account deleted' });
     } catch (error) {
       res.status(500).json({ error: error.message });

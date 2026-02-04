@@ -4,14 +4,14 @@ export default function (db) {
   const router = express.Router();
 
   // Get comprehensive report
-  router.get('/', (req, res) => {
+  router.get('/', async (req, res) => {
     try {
       const { department, start_date, end_date } = req.query;
       const reports = {};
 
       // Host Live Report
       if (!department || department === '1') {
-        const hostReport = db.prepare(`
+        const hostReport = await db.all(`
           SELECT 
             s.name as host_name,
             h.monthly_target_hours,
@@ -24,14 +24,14 @@ export default function (db) {
           WHERE h.active = 1
           GROUP BY h.id
           ORDER BY total_hours DESC
-        `).all(start_date, end_date);
+        `, [start_date, end_date]);
 
         reports.hostLive = hostReport;
       }
 
       // Warehouse Report
       if (!department || department === '2') {
-        const warehouseReport = db.prepare(`
+        const warehouseReport = await db.all(`
           SELECT 
             date,
             COUNT(*) as total_checklists,
@@ -41,14 +41,14 @@ export default function (db) {
           WHERE date >= ? AND date <= ?
           GROUP BY date
           ORDER BY date DESC
-        `).all(start_date, end_date);
+        `, [start_date, end_date]);
 
         reports.warehouse = warehouseReport;
       }
 
       // Crewstore Report
       if (!department || department === '3') {
-        const crewstoreReport = db.prepare(`
+        const crewstoreReport = await db.all(`
           SELECT 
             date,
             CASE 
@@ -73,7 +73,7 @@ export default function (db) {
             GROUP BY dates.date
           )
           ORDER BY date DESC
-        `).all(start_date, end_date, start_date, end_date);
+        `, [start_date, end_date, start_date, end_date]);
 
         reports.crewstore = crewstoreReport;
       }
@@ -85,7 +85,7 @@ export default function (db) {
   });
 
   // Export report as text
-  router.get('/export', (req, res) => {
+  router.get('/export', async (req, res) => {
     try {
       const { department, start_date, end_date } = req.query;
       let text = `LAPORAN KPI HIMEKU\n`;
@@ -97,7 +97,7 @@ export default function (db) {
         text += `📺 HOST LIVE\n`;
         text += `${'-'.repeat(50)}\n`;
         
-        const hostReport = db.prepare(`
+        const hostReport = await db.all(`
           SELECT 
             s.name as host_name,
             h.monthly_target_hours,
@@ -110,7 +110,7 @@ export default function (db) {
           WHERE h.active = 1
           GROUP BY h.id
           ORDER BY total_hours DESC
-        `).all(start_date, end_date);
+        `, [start_date, end_date]);
 
         hostReport.forEach(host => {
           const progress = host.monthly_target_hours > 0 
@@ -126,7 +126,7 @@ export default function (db) {
         text += `📦 WAREHOUSE\n`;
         text += `${'-'.repeat(50)}\n`;
         
-        const warehouseReport = db.prepare(`
+        const warehouseReport = await db.all(`
           SELECT 
             date,
             COUNT(*) as total_checklists,
@@ -135,7 +135,7 @@ export default function (db) {
           WHERE date >= ? AND date <= ?
           GROUP BY date
           ORDER BY date DESC
-        `).all(start_date, end_date);
+        `, [start_date, end_date]);
 
         warehouseReport.forEach(day => {
           const rate = day.total_checklists > 0 
@@ -151,10 +151,8 @@ export default function (db) {
         text += `🏪 CREWSTORE\n`;
         text += `${'-'.repeat(50)}\n`;
         
-        const opening = db.prepare('SELECT COUNT(*) as count FROM crewstore_opening WHERE date >= ? AND date <= ?')
-          .get(start_date, end_date);
-        const closing = db.prepare('SELECT COUNT(*) as count FROM crewstore_closing WHERE date >= ? AND date <= ?')
-          .get(start_date, end_date);
+        const opening = await db.get('SELECT COUNT(*) as count FROM crewstore_opening WHERE date >= ? AND date <= ?', [start_date, end_date]);
+        const closing = await db.get('SELECT COUNT(*) as count FROM crewstore_closing WHERE date >= ? AND date <= ?', [start_date, end_date]);
 
         text += `Opening: ${opening.count} hari\n`;
         text += `Closing: ${closing.count} hari\n`;

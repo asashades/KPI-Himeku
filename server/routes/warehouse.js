@@ -4,7 +4,7 @@ export default function (db) {
   const router = express.Router();
 
   // Get all warehouse checklists
-  router.get('/checklists', (req, res) => {
+  router.get('/checklists', async (req, res) => {
     try {
       const { date, status } = req.query;
       let query = `
@@ -27,7 +27,7 @@ export default function (db) {
 
       query += ' ORDER BY wc.date DESC, wc.created_at DESC';
 
-      const checklists = db.prepare(query).all(...params);
+      const checklists = await db.all(query, params);
       
       // Parse items JSON
       checklists.forEach(checklist => {
@@ -41,14 +41,14 @@ export default function (db) {
   });
 
   // Create new checklist
-  router.post('/checklists', (req, res) => {
+  router.post('/checklists', async (req, res) => {
     try {
       const { date, template_id, items } = req.body;
       
-      const result = db.prepare(`
+      const result = await db.run(`
         INSERT INTO warehouse_checklists (date, template_id, items)
         VALUES (?, ?, ?)
-      `).run(date, template_id, JSON.stringify(items));
+      `, [date, template_id, JSON.stringify(items)]);
 
       res.json({ 
         id: result.lastInsertRowid, 
@@ -63,7 +63,7 @@ export default function (db) {
   });
 
   // Update checklist
-  router.put('/checklists/:id', (req, res) => {
+  router.put('/checklists/:id', async (req, res) => {
     try {
       const { items, status, completed_by } = req.body;
       
@@ -88,8 +88,7 @@ export default function (db) {
 
       params.push(req.params.id);
 
-      db.prepare(`UPDATE warehouse_checklists SET ${updates.join(', ')} WHERE id = ?`)
-        .run(...params);
+      await db.run(`UPDATE warehouse_checklists SET ${updates.join(', ')} WHERE id = ?`, params);
 
       res.json({ id: req.params.id, message: 'Checklist updated' });
     } catch (error) {
@@ -98,9 +97,9 @@ export default function (db) {
   });
 
   // Delete checklist
-  router.delete('/checklists/:id', (req, res) => {
+  router.delete('/checklists/:id', async (req, res) => {
     try {
-      db.prepare('DELETE FROM warehouse_checklists WHERE id = ?').run(req.params.id);
+      await db.run('DELETE FROM warehouse_checklists WHERE id = ?', [req.params.id]);
       res.json({ message: 'Checklist deleted' });
     } catch (error) {
       res.status(500).json({ error: error.message });
@@ -108,15 +107,15 @@ export default function (db) {
   });
 
   // Get today's checklist status
-  router.get('/today', (req, res) => {
+  router.get('/today', async (req, res) => {
     try {
       const today = new Date().toISOString().split('T')[0];
-      const checklists = db.prepare(`
+      const checklists = await db.all(`
         SELECT wc.*, ct.name as template_name
         FROM warehouse_checklists wc
         JOIN checklist_templates ct ON wc.template_id = ct.id
         WHERE wc.date = ?
-      `).all(today);
+      `, [today]);
 
       checklists.forEach(checklist => {
         checklist.items = JSON.parse(checklist.items);
@@ -134,7 +133,7 @@ export default function (db) {
   // ============ DAILY REPORTS ============
 
   // Get all daily reports
-  router.get('/daily-reports', (req, res) => {
+  router.get('/daily-reports', async (req, res) => {
     try {
       const { date } = req.query;
       let query = `
@@ -152,7 +151,7 @@ export default function (db) {
 
       query += ' ORDER BY dr.date DESC, dr.created_at DESC LIMIT 30';
 
-      const reports = db.prepare(query).all(...params);
+      const reports = await db.all(query, params);
       res.json(reports);
     } catch (error) {
       res.status(500).json({ error: error.message });
@@ -160,14 +159,14 @@ export default function (db) {
   });
 
   // Create daily report
-  router.post('/daily-reports', (req, res) => {
+  router.post('/daily-reports', async (req, res) => {
     try {
       const { date, spx, jnt, total_kiriman, pending, restock } = req.body;
       
-      const result = db.prepare(`
+      const result = await db.run(`
         INSERT INTO warehouse_daily_reports (date, spx, jnt, total_kiriman, pending, restock, created_by)
         VALUES (?, ?, ?, ?, ?, ?, ?)
-      `).run(date, spx || 0, jnt || 0, total_kiriman || 0, pending || '', restock || '', req.user.id);
+      `, [date, spx || 0, jnt || 0, total_kiriman || 0, pending || '', restock || '', req.user.id]);
 
       res.json({ 
         id: result.lastInsertRowid, 
@@ -184,9 +183,9 @@ export default function (db) {
   });
 
   // Delete daily report
-  router.delete('/daily-reports/:id', (req, res) => {
+  router.delete('/daily-reports/:id', async (req, res) => {
     try {
-      db.prepare('DELETE FROM warehouse_daily_reports WHERE id = ?').run(req.params.id);
+      await db.run('DELETE FROM warehouse_daily_reports WHERE id = ?', [req.params.id]);
       res.json({ message: 'Report deleted' });
     } catch (error) {
       res.status(500).json({ error: error.message });
@@ -196,7 +195,7 @@ export default function (db) {
   // ============ WRONG ORDERS ============
 
   // Get all wrong orders
-  router.get('/wrong-orders', (req, res) => {
+  router.get('/wrong-orders', async (req, res) => {
     try {
       const { date, status, month } = req.query;
       let query = `
@@ -224,7 +223,7 @@ export default function (db) {
 
       query += ' ORDER BY wo.date DESC, wo.created_at DESC LIMIT 100';
 
-      const orders = db.prepare(query).all(...params);
+      const orders = await db.all(query, params);
       res.json(orders);
     } catch (error) {
       res.status(500).json({ error: error.message });
@@ -232,14 +231,14 @@ export default function (db) {
   });
 
   // Create wrong order report
-  router.post('/wrong-orders', (req, res) => {
+  router.post('/wrong-orders', async (req, res) => {
     try {
       const { date, order_id, description, type, status } = req.body;
       
-      const result = db.prepare(`
+      const result = await db.run(`
         INSERT INTO warehouse_wrong_orders (date, order_id, description, type, status, reported_by)
         VALUES (?, ?, ?, ?, ?, ?)
-      `).run(date, order_id, description || '', type || 'wrong_item', status || 'pending', req.user.id);
+      `, [date, order_id, description || '', type || 'wrong_item', status || 'pending', req.user.id]);
 
       res.json({ 
         id: result.lastInsertRowid, 
@@ -255,7 +254,7 @@ export default function (db) {
   });
 
   // Update wrong order (e.g., mark as resolved)
-  router.put('/wrong-orders/:id', (req, res) => {
+  router.put('/wrong-orders/:id', async (req, res) => {
     try {
       const { status, resolution_notes } = req.body;
       
@@ -278,8 +277,7 @@ export default function (db) {
 
       params.push(req.params.id);
 
-      db.prepare(`UPDATE warehouse_wrong_orders SET ${updates.join(', ')} WHERE id = ?`)
-        .run(...params);
+      await db.run(`UPDATE warehouse_wrong_orders SET ${updates.join(', ')} WHERE id = ?`, params);
 
       res.json({ id: req.params.id, message: 'Wrong order updated' });
     } catch (error) {
@@ -288,9 +286,9 @@ export default function (db) {
   });
 
   // Delete wrong order
-  router.delete('/wrong-orders/:id', (req, res) => {
+  router.delete('/wrong-orders/:id', async (req, res) => {
     try {
-      db.prepare('DELETE FROM warehouse_wrong_orders WHERE id = ?').run(req.params.id);
+      await db.run('DELETE FROM warehouse_wrong_orders WHERE id = ?', [req.params.id]);
       res.json({ message: 'Wrong order deleted' });
     } catch (error) {
       res.status(500).json({ error: error.message });
@@ -298,18 +296,18 @@ export default function (db) {
   });
 
   // Get wrong order stats for dashboard
-  router.get('/wrong-orders/stats', (req, res) => {
+  router.get('/wrong-orders/stats', async (req, res) => {
     try {
       const currentMonth = new Date().toISOString().slice(0, 7);
       
-      const stats = db.prepare(`
+      const stats = await db.get(`
         SELECT 
           COUNT(*) as total,
           SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
           SUM(CASE WHEN status = 'resolved' THEN 1 ELSE 0 END) as resolved
         FROM warehouse_wrong_orders
         WHERE strftime('%Y-%m', date) = ?
-      `).get(currentMonth);
+      `, [currentMonth]);
 
       res.json({
         total: stats?.total || 0,

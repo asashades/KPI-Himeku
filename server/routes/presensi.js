@@ -32,7 +32,7 @@ export default function presensiRoutes(db) {
   };
 
   // Get all presensi for current user
-  router.get('/', (req, res) => {
+  router.get('/', async (req, res) => {
     try {
       const { startDate, endDate, jenis } = req.query;
       let query = `
@@ -55,7 +55,7 @@ export default function presensiRoutes(db) {
 
       query += ' ORDER BY p.timestamp DESC';
 
-      const presensi = db.prepare(query).all(...params);
+      const presensi = await db.all(query, params);
       res.json(presensi);
     } catch (error) {
       console.error('Error fetching presensi:', error);
@@ -64,7 +64,7 @@ export default function presensiRoutes(db) {
   });
 
   // Get all presensi (admin only)
-  router.get('/all', (req, res) => {
+  router.get('/all', async (req, res) => {
     try {
       if (req.user.role !== 'admin') {
         return res.status(403).json({ error: 'Access denied' });
@@ -96,7 +96,7 @@ export default function presensiRoutes(db) {
 
       query += ' ORDER BY p.timestamp DESC';
 
-      const presensi = db.prepare(query).all(...params);
+      const presensi = await db.all(query, params);
       res.json(presensi);
     } catch (error) {
       console.error('Error fetching all presensi:', error);
@@ -105,7 +105,7 @@ export default function presensiRoutes(db) {
   });
 
   // Get rekap keterlambatan (admin only)
-  router.get('/rekap-terlambat', (req, res) => {
+  router.get('/rekap-terlambat', async (req, res) => {
     try {
       if (req.user.role !== 'admin') {
         return res.status(403).json({ error: 'Access denied' });
@@ -118,7 +118,7 @@ export default function presensiRoutes(db) {
       }
 
       // Get all late check-ins within date range
-      const lateRecords = db.prepare(`
+      const lateRecords = await db.all(`
         SELECT p.*, u.name as staff_name, u.username, u.id as user_id
         FROM presensi p
         LEFT JOIN users u ON p.user_id = u.id
@@ -126,7 +126,7 @@ export default function presensiRoutes(db) {
         AND p.jenis = 'Masuk'
         AND p.late_minutes > 0
         ORDER BY u.name, p.timestamp
-      `).all(startDate, endDate);
+      `, [startDate, endDate]);
 
       // Group by user and calculate totals
       const rekapByUser = {};
@@ -160,7 +160,7 @@ export default function presensiRoutes(db) {
   });
 
   // Get rekap kehadiran per karyawan (admin only)
-  router.get('/rekap-kehadiran', (req, res) => {
+  router.get('/rekap-kehadiran', async (req, res) => {
     try {
       if (req.user.role !== 'admin') {
         return res.status(403).json({ error: 'Access denied' });
@@ -173,7 +173,7 @@ export default function presensiRoutes(db) {
       }
 
       // Get all check-ins within date range grouped by user
-      const allRecords = db.prepare(`
+      const allRecords = await db.all(`
         SELECT 
           u.id as user_id,
           u.name as staff_name,
@@ -188,7 +188,7 @@ export default function presensiRoutes(db) {
         GROUP BY u.id, u.name, u.username
         HAVING total_hadir > 0
         ORDER BY u.name
-      `).all(startDate, endDate);
+      `, [startDate, endDate]);
 
       res.json(allRecords);
     } catch (error) {
@@ -217,7 +217,7 @@ export default function presensiRoutes(db) {
       }
 
       // Get staff name from user
-      const user = db.prepare('SELECT name FROM users WHERE id = ?').get(req.user.id);
+      const user = await db.get('SELECT name FROM users WHERE id = ?', [req.user.id]);
       const staffName = user?.name || 'Unknown';
       const today = new Date().toISOString().split('T')[0];
 
@@ -271,7 +271,7 @@ export default function presensiRoutes(db) {
   });
 
   // Create new presensi
-  router.post('/', (req, res) => {
+  router.post('/', async (req, res) => {
     try {
       const { jenis, shift, foto_url, latitude, longitude } = req.body;
       const timestamp = new Date().toISOString();
@@ -282,10 +282,10 @@ export default function presensiRoutes(db) {
 
       // Check if already checked in/out today for this shift
       const today = timestamp.split('T')[0];
-      const existingPresensi = db.prepare(`
+      const existingPresensi = await db.get(`
         SELECT * FROM presensi 
         WHERE user_id = ? AND DATE(timestamp) = ? AND jenis = ? AND shift = ?
-      `).get(req.user.id, today, jenis, shift);
+      `, [req.user.id, today, jenis, shift]);
 
       if (existingPresensi) {
         return res.status(400).json({ 
@@ -299,12 +299,12 @@ export default function presensiRoutes(db) {
         lateMinutes = calculateLateMinutes(timestamp, shift);
       }
 
-      const result = db.prepare(`
+      const result = await db.run(`
         INSERT INTO presensi (user_id, timestamp, jenis, shift, foto_url, latitude, longitude, late_minutes)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(req.user.id, timestamp, jenis, shift, foto_url || null, latitude || null, longitude || null, lateMinutes);
+      `, [req.user.id, timestamp, jenis, shift, foto_url || null, latitude || null, longitude || null, lateMinutes]);
 
-      const newPresensi = db.prepare('SELECT * FROM presensi WHERE id = ?').get(result.lastInsertRowid);
+      const newPresensi = await db.get('SELECT * FROM presensi WHERE id = ?', [result.lastInsertRowid]);
 
       let message = 'Presensi berhasil dicatat';
       if (lateMinutes > 0) {
@@ -322,7 +322,7 @@ export default function presensiRoutes(db) {
   });
 
   // Get presensi statistics
-  router.get('/stats', (req, res) => {
+  router.get('/stats', async (req, res) => {
     try {
       const { month, year } = req.query;
       const currentDate = new Date();
@@ -330,17 +330,17 @@ export default function presensiRoutes(db) {
       const targetYear = year || currentDate.getFullYear();
 
       // Get total days worked this month
-      const daysWorked = db.prepare(`
+      const daysWorked = await db.get(`
         SELECT COUNT(DISTINCT DATE(timestamp)) as days
         FROM presensi
         WHERE user_id = ? 
         AND strftime('%m', timestamp) = ? 
         AND strftime('%Y', timestamp) = ?
         AND jenis = 'Masuk'
-      `).get(req.user.id, String(targetMonth).padStart(2, '0'), String(targetYear));
+      `, [req.user.id, String(targetMonth).padStart(2, '0'), String(targetYear)]);
 
       // Get on-time count (late_minutes = 0 or NULL)
-      const onTimeCount = db.prepare(`
+      const onTimeCount = await db.get(`
         SELECT COUNT(*) as count
         FROM presensi
         WHERE user_id = ? 
@@ -348,10 +348,10 @@ export default function presensiRoutes(db) {
         AND strftime('%Y', timestamp) = ?
         AND jenis = 'Masuk'
         AND (late_minutes IS NULL OR late_minutes = 0)
-      `).get(req.user.id, String(targetMonth).padStart(2, '0'), String(targetYear));
+      `, [req.user.id, String(targetMonth).padStart(2, '0'), String(targetYear)]);
 
       // Get late count
-      const lateCount = db.prepare(`
+      const lateCount = await db.get(`
         SELECT COUNT(*) as count, COALESCE(SUM(late_minutes), 0) as total_minutes
         FROM presensi
         WHERE user_id = ? 
@@ -359,16 +359,16 @@ export default function presensiRoutes(db) {
         AND strftime('%Y', timestamp) = ?
         AND jenis = 'Masuk'
         AND late_minutes > 0
-      `).get(req.user.id, String(targetMonth).padStart(2, '0'), String(targetYear));
+      `, [req.user.id, String(targetMonth).padStart(2, '0'), String(targetYear)]);
 
-      const totalMasuk = db.prepare(`
+      const totalMasuk = await db.get(`
         SELECT COUNT(*) as count
         FROM presensi
         WHERE user_id = ? 
         AND strftime('%m', timestamp) = ? 
         AND strftime('%Y', timestamp) = ?
         AND jenis = 'Masuk'
-      `).get(req.user.id, String(targetMonth).padStart(2, '0'), String(targetYear));
+      `, [req.user.id, String(targetMonth).padStart(2, '0'), String(targetYear)]);
 
       res.json({
         daysWorked: daysWorked?.days || 0,
@@ -386,14 +386,14 @@ export default function presensiRoutes(db) {
   });
 
   // Delete presensi (admin only)
-  router.delete('/:id', (req, res) => {
+  router.delete('/:id', async (req, res) => {
     try {
       if (req.user.role !== 'admin') {
         return res.status(403).json({ error: 'Access denied' });
       }
 
       const { id } = req.params;
-      const result = db.prepare('DELETE FROM presensi WHERE id = ?').run(id);
+      const result = await db.run('DELETE FROM presensi WHERE id = ?', [id]);
 
       if (result.changes === 0) {
         return res.status(404).json({ error: 'Presensi not found' });
