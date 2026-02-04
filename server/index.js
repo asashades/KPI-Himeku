@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { existsSync, mkdirSync } from 'fs';
 import Database from 'better-sqlite3';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
@@ -13,8 +14,15 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 const JWT_SECRET = process.env.JWT_SECRET || 'himeku-secret-key-change-in-production';
 
+// Database path - use /tmp for Railway (ephemeral but works for testing)
+const dbPath = process.env.NODE_ENV === 'production' 
+  ? '/tmp/database.db' 
+  : join(__dirname, '../database.db');
+
+console.log('Database path:', dbPath);
+
 // Initialize database
-const db = new Database(join(__dirname, '../database.db'));
+const db = new Database(dbPath);
 db.pragma('journal_mode = WAL');
 
 // Middleware
