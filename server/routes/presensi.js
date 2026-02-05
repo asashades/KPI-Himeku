@@ -172,25 +172,67 @@ export default function presensiRoutes(db) {
         return res.status(400).json({ error: 'startDate dan endDate harus diisi' });
       }
 
-      // Get all check-ins within date range grouped by user
-      const allRecords = await db.all(`
+      // Simpler query - get all presensi records first, then aggregate
+      const allPresensi = await db.all(`
         SELECT 
-          u.id as user_id,
+          p.user_id,
           u.name as staff_name,
           u.username,
-          COUNT(DISTINCT CASE WHEN p.jenis = 'Masuk' THEN DATE(p.timestamp) END) as total_hadir,
-          COUNT(CASE WHEN p.jenis = 'Masuk' AND (p.late_minutes IS NULL OR p.late_minutes = 0) THEN 1 END) as tepat_waktu,
-          COUNT(CASE WHEN p.jenis = 'Masuk' AND p.late_minutes > 0 THEN 1 END) as terlambat,
-          COALESCE(SUM(CASE WHEN p.jenis = 'Masuk' AND p.late_minutes > 0 THEN p.late_minutes ELSE 0 END), 0) as total_menit_terlambat
-        FROM users u
-        LEFT JOIN presensi p ON u.id = p.user_id AND DATE(p.timestamp) BETWEEN ? AND ?
-        WHERE u.role != 'admin' OR p.id IS NOT NULL
-        GROUP BY u.id, u.name, u.username
-        HAVING COUNT(DISTINCT CASE WHEN p.jenis = 'Masuk' THEN DATE(p.timestamp) END) > 0
-        ORDER BY u.name
+          DATE(p.timestamp) as tanggal,
+          p.jenis,
+          p.late_minutes
+        FROM presensi p
+        LEFT JOIN users u ON p.user_id = u.id
+        WHERE DATE(p.timestamp) >= ? AND DATE(p.timestamp) <= ?
+        ORDER BY p.user_id, p.timestamp
       `, [startDate, endDate]);
 
-      res.json(allRecords);
+      // Aggregate in JavaScript for better compatibility
+      const userMap = new Map();
+      
+      for (const record of allPresensi) {
+        const key = record.user_id;
+        if (!userMap.has(key)) {
+          userMap.set(key, {
+            user_id: record.user_id,
+            staff_name: record.staff_name || 'Unknown',
+            username: record.username || '',
+            dates_hadir: new Set(),
+            tepat_waktu: 0,
+            terlambat: 0,
+            total_menit_terlambat: 0
+          });
+        }
+        
+        const user = userMap.get(key);
+        
+        if (record.jenis === 'Masuk') {
+          user.dates_hadir.add(record.tanggal);
+          
+          if (record.late_minutes && record.late_minutes > 0) {
+            user.terlambat++;
+            user.total_menit_terlambat += record.late_minutes;
+          } else {
+            user.tepat_waktu++;
+          }
+        }
+      }
+
+      // Convert to array and format
+      const result = Array.from(userMap.values())
+        .map(u => ({
+          user_id: u.user_id,
+          staff_name: u.staff_name,
+          username: u.username,
+          total_hadir: u.dates_hadir.size,
+          tepat_waktu: u.tepat_waktu,
+          terlambat: u.terlambat,
+          total_menit_terlambat: u.total_menit_terlambat
+        }))
+        .filter(u => u.total_hadir > 0)
+        .sort((a, b) => a.staff_name.localeCompare(b.staff_name));
+
+      res.json(result);
     } catch (error) {
       console.error('Error fetching rekap kehadiran:', error);
       res.status(500).json({ error: 'Failed to fetch rekap kehadiran' });
