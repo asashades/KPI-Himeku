@@ -24,10 +24,16 @@ export default function Reports() {
         headers: { Authorization: `Bearer ${token}` }
       });
       
-      const data = await response.json();
-      setReports(data);
+      if (response.ok) {
+        const data = await response.json();
+        setReports(data && !data.error ? data : {});
+      } else {
+        console.error('Reports API returned', response.status);
+        setReports({});
+      }
     } catch (error) {
       console.error('Error fetching reports:', error);
+      setReports({});
     } finally {
       setLoading(false);
     }

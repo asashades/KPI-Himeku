@@ -234,14 +234,15 @@ export default function (db) {
       const monthEnd = lastDay.toISOString().split('T')[0];
       
       const hosts = await db.all(`
-        SELECT h.*, s.name, s.photo_url,
+        SELECT h.id, h.staff_id, h.monthly_target_hours, h.active, h.created_at,
+               s.name, s.photo_url,
                COALESCE(SUM(ls.duration_hours), 0) as current_month_hours
         FROM hosts h
         JOIN staff s ON h.staff_id = s.id
         LEFT JOIN live_sessions ls ON h.id = ls.host_id 
           AND ls.date >= ? AND ls.date <= ?
         WHERE h.active = 1
-        GROUP BY h.id, s.name, s.photo_url
+        GROUP BY h.id, h.staff_id, h.monthly_target_hours, h.active, h.created_at, s.name, s.photo_url
         ORDER BY current_month_hours DESC
       `, [monthStart, monthEnd]);
       
