@@ -233,20 +233,36 @@ export default function (db) {
       const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
       const monthEnd = lastDay.toISOString().split('T')[0];
       
+      // Step 1: Get all active hosts
       const hosts = await db.all(`
-        SELECT h.id, h.staff_id, h.monthly_target_hours, h.active, h.created_at,
-               s.name, s.photo_url,
-               COALESCE(SUM(ls.duration_hours), 0) as current_month_hours
+        SELECT h.id, h.staff_id, h.monthly_target_hours,
+               s.name, s.photo_url
         FROM hosts h
         JOIN staff s ON h.staff_id = s.id
-        LEFT JOIN live_sessions ls ON h.id = ls.host_id 
-          AND ls.date >= ? AND ls.date <= ?
         WHERE h.active = 1
-        GROUP BY h.id, h.staff_id, h.monthly_target_hours, h.active, h.created_at, s.name, s.photo_url
-        ORDER BY current_month_hours DESC
+        ORDER BY s.name
+      `);
+
+      // Step 2: Get session hours per host for current month
+      const sessionHours = await db.all(`
+        SELECT host_id, COALESCE(SUM(duration_hours), 0) as total_hours
+        FROM live_sessions
+        WHERE date >= ? AND date <= ?
+        GROUP BY host_id
       `, [monthStart, monthEnd]);
+
+      // Step 3: Merge in JavaScript
+      const hoursMap = new Map();
+      for (const s of sessionHours) {
+        hoursMap.set(s.host_id, parseFloat(s.total_hours) || 0);
+      }
+
+      const result = hosts.map(h => ({
+        ...h,
+        current_month_hours: hoursMap.get(h.id) || 0
+      })).sort((a, b) => b.current_month_hours - a.current_month_hours);
       
-      res.json(hosts);
+      res.json(result);
     } catch (error) {
       console.error('Error fetching hosts:', error);
       res.status(500).json({ error: error.message });
