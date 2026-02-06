@@ -2,10 +2,14 @@ services:
   - type: web
     name: kpi-himeku
     env: node
-    buildCommand: npm install
-    startCommand: npm run server
+    buildCommand: npm install && npm run build
+    startCommand: node server/index.js
     envVars:
       - key: JWT_SECRET
         generateValue: true
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
       - key: PORT
         value: 5000

@@ -16,10 +16,16 @@ export default function Dashboard() {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await response.json();
-      console.log('Dashboard data:', data); // Debug log
-      setOverview(data);
+      // Only set overview if response is valid (has hostLive or no error)
+      if (data && !data.error) {
+        setOverview(data);
+      } else {
+        console.error('Dashboard API error:', data?.error);
+        setOverview(null);
+      }
     } catch (error) {
       console.error('Error fetching overview:', error);
+      setOverview(null);
     } finally {
       setLoading(false);
     }

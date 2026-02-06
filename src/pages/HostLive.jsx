@@ -82,8 +82,8 @@ export default function HostLive({ user }) {
         fetch('/api/staff?department_id=3', { headers })
       ]);
       
-      const hostsData = await hostsRes.json();
-      const staffData = await staffRes.json();
+      const hostsData = hostsRes.ok ? await hostsRes.json() : [];
+      const staffData = staffRes.ok ? await staffRes.json() : [];
       
       setHosts(Array.isArray(hostsData) ? hostsData : []);
       setStaff(Array.isArray(staffData) ? staffData : []);

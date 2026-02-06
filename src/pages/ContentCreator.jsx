@@ -58,9 +58,9 @@ export default function ContentCreator({ user }) {
         fetch('/api/contentcreator/posts', { headers })
       ]);
 
-      const creatorsData = await creatorsRes.json();
-      const staffData = await staffRes.json();
-      const postsData = await postsRes.json();
+      const creatorsData = creatorsRes.ok ? await creatorsRes.json() : [];
+      const staffData = staffRes.ok ? await staffRes.json() : [];
+      const postsData = postsRes.ok ? await postsRes.json() : [];
 
       setCreators(Array.isArray(creatorsData) ? creatorsData : []);
       setStaff(Array.isArray(staffData) ? staffData : []);
@@ -162,11 +162,19 @@ export default function ContentCreator({ user }) {
     e.preventDefault();
     const formData = new FormData(e.target);
     
-    // Get creator_id from form (if selected from dropdown) or from selectedCreator
-    const creatorId = selectedCreator?.id || formData.get('creator_id');
+    // Get creator_id: from selectedCreator, form dropdown, or auto-detected from logged-in user
+    let creatorId = selectedCreator?.id || formData.get('creator_id');
+    
+    // If not admin, auto-detect creator based on logged-in user
+    if (!creatorId && !isAdmin && user?.name) {
+      const myCreator = creators.find(c => 
+        c.name?.toLowerCase() === user.name?.toLowerCase()
+      );
+      creatorId = myCreator?.id;
+    }
     
     if (!creatorId) {
-      alert('Pilih creator terlebih dahulu!');
+      alert('Creator tidak ditemukan untuk akun kamu!');
       return;
     }
     
@@ -727,8 +735,8 @@ export default function ContentCreator({ user }) {
               </button>
             </div>
             <form onSubmit={editingPost ? handleEditPost : handleAddPost} className="space-y-4">
-              {/* Creator selection - only show when not pre-selected */}
-              {!selectedCreator && (
+              {/* Creator selection - only show for admin when not pre-selected */}
+              {!selectedCreator && isAdmin && (
                 <div>
                   <label className="label">Pilih Creator</label>
                   <select 
@@ -742,6 +750,15 @@ export default function ContentCreator({ user }) {
                       <option key={c.id} value={c.id}>{c.name}</option>
                     ))}
                   </select>
+                </div>
+              )}
+
+              {/* Show logged-in creator name for non-admin */}
+              {!selectedCreator && !isAdmin && (
+                <div className="p-3 bg-pink-50 rounded-lg border border-pink-200">
+                  <p className="text-sm text-pink-700 font-medium">
+                    📸 Posting sebagai: <span className="font-bold">{user?.name || 'Unknown'}</span>
+                  </p>
                 </div>
               )}
 
