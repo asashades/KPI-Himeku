@@ -233,5 +233,85 @@ export default function (db) {
     }
   });
 
+  // Export crewstore history as CSV
+  router.get('/crewstore-history', async (req, res) => {
+    try {
+      const { start_date, end_date } = req.query;
+      if (!start_date || !end_date) {
+        return res.status(400).json({ error: 'start_date and end_date required' });
+      }
+
+      const openings = await db.all(`
+        SELECT co.*, u.name as completed_by_name 
+        FROM crewstore_opening co
+        LEFT JOIN users u ON co.completed_by = u.id
+        WHERE co.date >= ? AND co.date <= ?
+        ORDER BY co.date DESC
+      `, [start_date, end_date]);
+
+      const closings = await db.all(`
+        SELECT cc.*, u.name as completed_by_name 
+        FROM crewstore_closing cc
+        LEFT JOIN users u ON cc.completed_by = u.id
+        WHERE cc.date >= ? AND cc.date <= ?
+        ORDER BY cc.date DESC
+      `, [start_date, end_date]);
+
+      // Group by date
+      const dateMap = new Map();
+      for (const o of (openings || [])) {
+        let items = [];
+        try { items = typeof o.items === 'string' ? JSON.parse(o.items) : (o.items || []); } catch(e) {}
+        const checkedCount = items.filter(i => i.checked).length;
+        if (!dateMap.has(o.date)) dateMap.set(o.date, { date: o.date });
+        const entry = dateMap.get(o.date);
+        entry.opening_time = o.open_time || '';
+        entry.opening_items = `${checkedCount}/${items.length}`;
+        entry.opening_tap = o.tap_status || '';
+        entry.opening_by = o.completed_by_name || '';
+      }
+      for (const c of (closings || [])) {
+        let items = [];
+        try { items = typeof c.items === 'string' ? JSON.parse(c.items) : (c.items || []); } catch(e) {}
+        const checkedCount = items.filter(i => i.checked).length;
+        if (!dateMap.has(c.date)) dateMap.set(c.date, { date: c.date });
+        const entry = dateMap.get(c.date);
+        entry.closing_items = `${checkedCount}/${items.length}`;
+        entry.daily_sales = c.daily_sales || 0;
+        entry.closing_notes = c.additional_notes || '';
+        entry.closing_by = c.completed_by_name || '';
+        entry.next_morning = c.next_shift_morning || '';
+        entry.next_afternoon = c.next_shift_afternoon || '';
+      }
+
+      const rows = Array.from(dateMap.values()).sort((a, b) => b.date.localeCompare(a.date));
+
+      // Build CSV
+      let csv = 'Tanggal,Jam Buka,Opening Checklist,Status Keran,Opening Oleh,Closing Checklist,Penjualan,Catatan Closing,Closing Oleh,Shift Pagi Besok,Shift Siang Besok\n';
+      for (const r of rows) {
+        csv += [
+          r.date,
+          r.opening_time || '',
+          r.opening_items || '-',
+          r.opening_tap || '',
+          r.opening_by || '',
+          r.closing_items || '-',
+          r.daily_sales || 0,
+          `"${(r.closing_notes || '').replace(/"/g, '""')}"`,
+          r.closing_by || '',
+          r.next_morning || '',
+          r.next_afternoon || ''
+        ].join(',') + '\n';
+      }
+
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename=crewstore-history-${start_date}-to-${end_date}.csv`);
+      res.send(csv);
+    } catch (error) {
+      console.error('Crewstore history export error:', error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   return router;
 }

@@ -239,20 +239,17 @@ export default function (db) {
         onTimeOpenings = parseInt(otResult?.count) || 0;
       } catch (e) { console.error('Dashboard ontime error:', e.message); }
 
+      // Pending items
+      let pendingItems = [];
       try {
-        activeDates = await db.all(`
-          SELECT DISTINCT date FROM (
-            SELECT date FROM live_sessions WHERE date >= ? AND date <= ?
-            UNION
-            SELECT date FROM warehouse_checklists WHERE date >= ? AND date <= ?
-            UNION
-            SELECT date FROM crewstore_opening WHERE date >= ? AND date <= ?
-            UNION
-            SELECT date FROM crewstore_closing WHERE date >= ? AND date <= ?
-          ) AS combined_dates
-          ORDER BY date
-        `, [monthStart, monthEnd, monthStart, monthEnd, monthStart, monthEnd, monthStart, monthEnd]);
-      } catch (e) { console.error('Dashboard calendar error:', e.message); activeDates = []; }
+        pendingItems = await db.all('SELECT * FROM pending_items WHERE completed = 0 ORDER BY created_at DESC');
+      } catch (e) { console.error('Dashboard pending error:', e.message); }
+
+      // Restock items
+      let restockItems = [];
+      try {
+        restockItems = await db.all('SELECT * FROM restock_items WHERE completed = 0 ORDER BY created_at DESC');
+      } catch (e) { console.error('Dashboard restock error:', e.message); }
 
       res.json({
         hostLive: {
@@ -298,10 +295,8 @@ export default function (db) {
           tapStatus: crewstoreOpening?.tap_status || null,
           tapNotes: crewstoreOpening?.tap_notes || null
         },
-        calendar: {
-          activeDates: activeDates.map(d => d.date)
-        },
-        date: today
+        pendingItems: pendingItems,
+        restockItems: restockItems
       });
     } catch (error) {
       res.status(500).json({ error: error.message });

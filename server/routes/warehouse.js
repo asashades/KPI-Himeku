@@ -328,5 +328,115 @@ export default function (db) {
     }
   });
 
+  // ============ PENDING ITEMS (To-Do List) ============
+
+  // Get all active pending items
+  router.get('/pending', async (req, res) => {
+    try {
+      const { source } = req.query;
+      let query = 'SELECT * FROM pending_items WHERE completed = 0';
+      const params = [];
+      if (source) {
+        query += ' AND source = ?';
+        params.push(source);
+      }
+      query += ' ORDER BY created_at DESC';
+      const items = await db.all(query, params);
+      res.json(items);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Add pending item
+  router.post('/pending', async (req, res) => {
+    try {
+      const { text, source } = req.body;
+      if (!text?.trim()) return res.status(400).json({ error: 'Text is required' });
+      const result = await db.run(
+        'INSERT INTO pending_items (source, text, created_by) VALUES (?, ?, ?)',
+        [source || 'warehouse', text.trim(), req.user.id]
+      );
+      res.json({ id: result.lastInsertRowid, source: source || 'warehouse', text: text.trim(), completed: 0 });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Complete (remove) pending item
+  router.put('/pending/:id/complete', async (req, res) => {
+    try {
+      await db.run('UPDATE pending_items SET completed = 1, completed_at = CURRENT_TIMESTAMP WHERE id = ?', [req.params.id]);
+      res.json({ message: 'Item completed' });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Delete pending item
+  router.delete('/pending/:id', async (req, res) => {
+    try {
+      await db.run('DELETE FROM pending_items WHERE id = ?', [req.params.id]);
+      res.json({ message: 'Item deleted' });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ============ RESTOCK ITEMS (To-Do List) ============
+
+  // Get all active restock items
+  router.get('/restock', async (req, res) => {
+    try {
+      const { source } = req.query;
+      let query = 'SELECT * FROM restock_items WHERE completed = 0';
+      const params = [];
+      if (source) {
+        query += ' AND source = ?';
+        params.push(source);
+      }
+      query += ' ORDER BY created_at DESC';
+      const items = await db.all(query, params);
+      res.json(items);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Add restock item
+  router.post('/restock', async (req, res) => {
+    try {
+      const { text, source } = req.body;
+      if (!text?.trim()) return res.status(400).json({ error: 'Text is required' });
+      const result = await db.run(
+        'INSERT INTO restock_items (source, text, created_by) VALUES (?, ?, ?)',
+        [source || 'warehouse', text.trim(), req.user.id]
+      );
+      res.json({ id: result.lastInsertRowid, source: source || 'warehouse', text: text.trim(), completed: 0 });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Complete (remove) restock item
+  router.put('/restock/:id/complete', async (req, res) => {
+    try {
+      await db.run('UPDATE restock_items SET completed = 1, completed_at = CURRENT_TIMESTAMP WHERE id = ?', [req.params.id]);
+      res.json({ message: 'Item completed' });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Delete restock item
+  router.delete('/restock/:id', async (req, res) => {
+    try {
+      await db.run('DELETE FROM restock_items WHERE id = ?', [req.params.id]);
+      res.json({ message: 'Item deleted' });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   return router;
 }

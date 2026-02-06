@@ -270,6 +270,32 @@ export async function initializeDatabase(db) {
     )
   `);
 
+  // Pending Items table (to-do list for warehouse)
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS pending_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      source TEXT NOT NULL DEFAULT 'warehouse',
+      text TEXT NOT NULL,
+      completed INTEGER DEFAULT 0,
+      created_by INTEGER,
+      completed_at DATETIME,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // Restock Items table (shared by warehouse and crewstore)
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS restock_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      source TEXT NOT NULL DEFAULT 'warehouse',
+      text TEXT NOT NULL,
+      completed INTEGER DEFAULT 0,
+      created_by INTEGER,
+      completed_at DATETIME,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
   // Insert default data
   const departmentCount = await db.get('SELECT COUNT(*) as count FROM departments');
   if (departmentCount.count === 0) {

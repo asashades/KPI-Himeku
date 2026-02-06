@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FileText, Download, Filter } from 'lucide-react';
+import { FileText, Download, Filter, Store } from 'lucide-react';
 
 export default function Reports() {
   const [reports, setReports] = useState(null);
@@ -244,11 +244,37 @@ export default function Reports() {
           {/* Crewstore Report */}
           {reports.crewstore && reports.crewstore.length > 0 && (
             <div className="card">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-2 bg-green-100 rounded-lg">
-                  <FileText className="text-green-600" size={24} />
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-green-100 rounded-lg">
+                    <FileText className="text-green-600" size={24} />
+                  </div>
+                  <h2 className="text-xl font-bold text-gray-800">Laporan Crewstore</h2>
                 </div>
-                <h2 className="text-xl font-bold text-gray-800">Laporan Crewstore</h2>
+                <button
+                  onClick={async () => {
+                    try {
+                      const token = localStorage.getItem('token');
+                      const params = new URLSearchParams({ start_date: filters.start_date, end_date: filters.end_date });
+                      const res = await fetch(`/api/reports/crewstore-history?${params}`, {
+                        headers: { Authorization: `Bearer ${token}` }
+                      });
+                      const blob = await res.blob();
+                      const url = window.URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `crewstore-history-${filters.start_date}-to-${filters.end_date}.csv`;
+                      a.click();
+                      window.URL.revokeObjectURL(url);
+                    } catch (e) {
+                      console.error('Download failed:', e);
+                      alert('Gagal download history crewstore');
+                    }
+                  }}
+                  className="btn bg-green-500 hover:bg-green-600 text-white flex items-center gap-2 text-sm"
+                >
+                  <Download size={16} /> Download CSV
+                </button>
               </div>
 
               <div className="overflow-x-auto">

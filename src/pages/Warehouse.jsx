@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Package, CheckCircle, Clock, Truck, Plus, TrendingUp, Trash2, Sparkles, X, AlertTriangle } from 'lucide-react';
+import { Package, CheckCircle, Clock, Truck, Plus, TrendingUp, Trash2, Sparkles, X, AlertTriangle, PlusCircle } from 'lucide-react';
 
 const encourageMessages = [
   "Warehouse vibes on point! You're literally the best! ✨",
@@ -16,14 +16,12 @@ const encourageMessages = [
 
 const getRandomEncourage = () => encourageMessages[Math.floor(Math.random() * encourageMessages.length)];
 
-// Format ISO date to Indonesian locale
 const formatDate = (dateStr) => {
   if (!dateStr) return '-';
   const date = new Date(dateStr);
   return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
 };
 
-// Get just the date part from ISO string for comparison
 const getDateOnly = (dateStr) => {
   if (!dateStr) return '';
   return dateStr.split('T')[0];
@@ -40,10 +38,17 @@ export default function Warehouse() {
   const [wrongOrders, setWrongOrders] = useState([]);
   const [showWrongOrderForm, setShowWrongOrderForm] = useState(false);
   const [wrongOrderForm, setWrongOrderForm] = useState({ order_id: '', description: '', type: 'wrong_item', status: 'pending' });
+  // Pending & Restock to-do state
+  const [pendingItems, setPendingItems] = useState([]);
+  const [restockItems, setRestockItems] = useState([]);
+  const [newPendingText, setNewPendingText] = useState('');
+  const [newRestockText, setNewRestockText] = useState('');
+  const [showAddPending, setShowAddPending] = useState(false);
+  const [showAddRestock, setShowAddRestock] = useState(false);
 
   const today = new Date().toISOString().split('T')[0];
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { fetchData(); fetchPendingRestock(); }, []);
 
   const fetchData = async () => {
     try {
@@ -68,6 +73,73 @@ export default function Warehouse() {
     }
   };
 
+  const fetchPendingRestock = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const headers = { Authorization: `Bearer ${token}` };
+      const [pendingRes, restockRes] = await Promise.all([
+        fetch('/api/warehouse/pending?source=warehouse', { headers }),
+        fetch('/api/warehouse/restock?source=warehouse', { headers })
+      ]);
+      const p = await pendingRes.json();
+      const r = await restockRes.json();
+      setPendingItems(Array.isArray(p) ? p : []);
+      setRestockItems(Array.isArray(r) ? r : []);
+    } catch (error) {
+      console.error('Error fetching pending/restock:', error);
+    }
+  };
+
+  const handleAddPending = async () => {
+    if (!newPendingText.trim()) return;
+    try {
+      const token = localStorage.getItem('token');
+      await fetch('/api/warehouse/pending', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ text: newPendingText, source: 'warehouse' })
+      });
+      setNewPendingText('');
+      fetchPendingRestock();
+    } catch (error) { console.error('Error:', error); }
+  };
+
+  const handleCompletePending = async (id) => {
+    try {
+      const token = localStorage.getItem('token');
+      await fetch(`/api/warehouse/pending/${id}/complete`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      fetchPendingRestock();
+    } catch (error) { console.error('Error:', error); }
+  };
+
+  const handleAddRestock = async () => {
+    if (!newRestockText.trim()) return;
+    try {
+      const token = localStorage.getItem('token');
+      await fetch('/api/warehouse/restock', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ text: newRestockText, source: 'warehouse' })
+      });
+      setNewRestockText('');
+      fetchPendingRestock();
+    } catch (error) { console.error('Error:', error); }
+  };
+
+  const handleCompleteRestock = async (id) => {
+    try {
+      const token = localStorage.getItem('token');
+      await fetch(`/api/warehouse/restock/${id}/complete`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      fetchPendingRestock();
+    } catch (error) { console.error('Error:', error); }
+  };
+
   const handleItemToggle = async (checklistId, itemId, checked) => {
     try {
       const token = localStorage.getItem('token');
@@ -86,11 +158,9 @@ export default function Warehouse() {
   const handleCreateChecklist = async (templateId) => {
     try {
       const token = localStorage.getItem('token');
-      // Find template to get items - items already parsed by backend
       const template = templates.find(t => t.id === templateId);
       const templateItems = Array.isArray(template?.items) ? template.items : [];
       const items = templateItems.map(item => ({ ...item, checked: false }));
-      
       const res = await fetch('/api/warehouse/checklists', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -153,11 +223,11 @@ export default function Warehouse() {
           status: 'pending'
         })
       });
-      if (res.ok) { 
-        setShowWrongOrderForm(false); 
-        setWrongOrderForm({ order_id: '', description: '', type: 'wrong_item', status: 'pending' }); 
-        setEncourageMsg(getRandomEncourage()); 
-        fetchData(); 
+      if (res.ok) {
+        setShowWrongOrderForm(false);
+        setWrongOrderForm({ order_id: '', description: '', type: 'wrong_item', status: 'pending' });
+        setEncourageMsg(getRandomEncourage());
+        fetchData();
       }
     } catch (error) { console.error('Error:', error); }
   };
@@ -165,8 +235,8 @@ export default function Warehouse() {
   const handleResolveWrongOrder = async (id) => {
     try {
       const token = localStorage.getItem('token');
-      await fetch(`/api/warehouse/wrong-orders/${id}`, { 
-        method: 'PUT', 
+      await fetch(`/api/warehouse/wrong-orders/${id}`, {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ status: 'resolved' })
       });
@@ -183,8 +253,6 @@ export default function Warehouse() {
     } catch (error) { console.error('Error:', error); }
   };
 
-  const todayReport = dailyReports.find(r => getDateOnly(r.date) === today);
-  const todayWrongOrders = wrongOrders.filter(w => getDateOnly(w.date) === today);
   const monthWrongOrders = wrongOrders.filter(w => getDateOnly(w.date)?.startsWith(new Date().toISOString().slice(0, 7)));
 
   if (loading) {
@@ -206,12 +274,14 @@ export default function Warehouse() {
           </h1>
           <p className="text-gray-600 mt-1">Daily checklist & laporan warehouse - Keep it moving! 🚀</p>
         </div>
-        <button onClick={() => setShowDailyReport(true)} className="btn bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white flex items-center gap-2">
-          <TrendingUp size={20} /> Laporan Hari Ini
-        </button>
-        <button onClick={() => setShowWrongOrderForm(true)} className="btn bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white flex items-center gap-2">
-          <AlertTriangle size={20} /> Lapor Salah Pesanan
-        </button>
+        <div className="flex gap-2">
+          <button onClick={() => setShowDailyReport(true)} className="btn bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white flex items-center gap-2">
+            <TrendingUp size={20} /> Laporan Hari Ini
+          </button>
+          <button onClick={() => setShowWrongOrderForm(true)} className="btn bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white flex items-center gap-2">
+            <AlertTriangle size={20} /> Lapor Salah Pesanan
+          </button>
+        </div>
       </div>
 
       <div className="bg-gradient-to-r from-blue-500 via-cyan-500 to-teal-500 rounded-xl p-4 text-white shadow-lg">
@@ -221,40 +291,13 @@ export default function Warehouse() {
         </div>
       </div>
 
-      {/* Today's Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="card bg-gradient-to-br from-orange-50 to-white">
-          <div className="flex items-center gap-3">
-            <div className="p-3 bg-orange-100 rounded-xl"><Truck className="text-orange-600" size={24} /></div>
-            <div>
-              <p className="text-sm text-gray-600">SPX</p>
-              <p className="text-2xl font-bold text-gray-800">{todayReport?.spx || 0}</p>
-            </div>
-          </div>
-        </div>
-        <div className="card bg-gradient-to-br from-red-50 to-white">
-          <div className="flex items-center gap-3">
-            <div className="p-3 bg-red-100 rounded-xl"><Truck className="text-red-600" size={24} /></div>
-            <div>
-              <p className="text-sm text-gray-600">J&T</p>
-              <p className="text-2xl font-bold text-gray-800">{todayReport?.jnt || 0}</p>
-            </div>
-          </div>
-        </div>
-        <div className="card bg-gradient-to-br from-green-50 to-white">
-          <div className="flex items-center gap-3">
-            <div className="p-3 bg-green-100 rounded-xl"><Package className="text-green-600" size={24} /></div>
-            <div>
-              <p className="text-sm text-gray-600">Total</p>
-              <p className="text-2xl font-bold text-gray-800">{todayReport?.total_kiriman || 0}</p>
-            </div>
-          </div>
-        </div>
+      {/* ─── Stat Cards (Checklist + Wrong Orders only) ─── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="card bg-gradient-to-br from-purple-50 to-white">
           <div className="flex items-center gap-3">
             <div className="p-3 bg-purple-100 rounded-xl"><CheckCircle className="text-purple-600" size={24} /></div>
             <div>
-              <p className="text-sm text-gray-600">Checklist</p>
+              <p className="text-sm text-gray-600">Checklist Hari Ini</p>
               <p className="text-2xl font-bold text-gray-800">{checklists.filter(c => c.items.every(i => i.checked)).length}/{checklists.length}</p>
             </div>
           </div>
@@ -263,15 +306,138 @@ export default function Warehouse() {
           <div className="flex items-center gap-3">
             <div className="p-3 bg-yellow-100 rounded-xl"><AlertTriangle className="text-yellow-600" size={24} /></div>
             <div>
-              <p className="text-sm text-gray-600">Salah Pesanan</p>
+              <p className="text-sm text-gray-600">Salah Pesanan (Bulan Ini)</p>
               <p className="text-2xl font-bold text-red-600">{monthWrongOrders.length}</p>
-              <p className="text-xs text-gray-500">bulan ini</p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Create Checklist */}
+      {/* ─── Pending To-do Card ─── */}
+      <div className="card border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-blue-500 rounded-lg">
+              <Clock className="text-white" size={24} />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-blue-800">Pending</h3>
+              <p className="text-sm text-blue-600">{pendingItems.length} item pending</p>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowAddPending(!showAddPending)}
+            className="btn bg-blue-500 hover:bg-blue-600 text-white flex items-center gap-1 text-sm"
+          >
+            <Plus size={16} /> Tambah
+          </button>
+        </div>
+
+        {showAddPending && (
+          <div className="flex gap-2 mb-4">
+            <input
+              type="text"
+              value={newPendingText}
+              onChange={(e) => setNewPendingText(e.target.value)}
+              placeholder="Tulis pesanan pending..."
+              className="input flex-1"
+              onKeyPress={(e) => e.key === 'Enter' && handleAddPending()}
+            />
+            <button onClick={handleAddPending} className="btn bg-blue-500 hover:bg-blue-600 text-white">
+              <PlusCircle size={18} />
+            </button>
+          </div>
+        )}
+
+        {pendingItems.length === 0 ? (
+          <div className="text-center py-8">
+            <div className="text-5xl mb-3">🎉</div>
+            <p className="text-green-600 font-bold text-lg">Yeaay!</p>
+            <p className="text-green-600">Semua pesanan terkirim, senangnya hatiku!</p>
+            <p className="text-green-500 text-sm mt-1">Paket pending sudah berlalu~ ✨</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {pendingItems.map(item => (
+              <div
+                key={item.id}
+                onClick={() => handleCompletePending(item.id)}
+                className="flex items-center gap-3 p-3 bg-white rounded-lg border border-blue-100 hover:bg-blue-50 cursor-pointer transition-colors group"
+              >
+                <div className="w-5 h-5 rounded border-2 border-blue-300 group-hover:border-blue-500 flex items-center justify-center">
+                  <span className="text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity text-xs">✓</span>
+                </div>
+                <span className="text-gray-800 flex-1">{item.text}</span>
+                <span className="text-xs text-gray-400">{new Date(item.created_at).toLocaleDateString('id-ID')}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ─── Restock To-do Card ─── */}
+      <div className="card border-2 border-orange-200 bg-gradient-to-br from-orange-50 to-yellow-50">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-orange-500 rounded-lg">
+              <Package className="text-white" size={24} />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-orange-800">Butuh Restock</h3>
+              <p className="text-sm text-orange-600">{restockItems.length} item perlu restock</p>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowAddRestock(!showAddRestock)}
+            className="btn bg-orange-500 hover:bg-orange-600 text-white flex items-center gap-1 text-sm"
+          >
+            <Plus size={16} /> Tambah
+          </button>
+        </div>
+
+        {showAddRestock && (
+          <div className="flex gap-2 mb-4">
+            <input
+              type="text"
+              value={newRestockText}
+              onChange={(e) => setNewRestockText(e.target.value)}
+              placeholder="Nama barang yang perlu restock..."
+              className="input flex-1"
+              onKeyPress={(e) => e.key === 'Enter' && handleAddRestock()}
+            />
+            <button onClick={handleAddRestock} className="btn bg-orange-500 hover:bg-orange-600 text-white">
+              <PlusCircle size={18} />
+            </button>
+          </div>
+        )}
+
+        {restockItems.length === 0 ? (
+          <div className="text-center py-8">
+            <div className="text-5xl mb-3">🎊</div>
+            <CheckCircle className="w-12 h-12 mx-auto text-green-400 mb-2" />
+            <p className="text-green-600 font-bold text-lg">Semua stok aman!</p>
+            <p className="text-green-500 text-sm">Tidak ada barang yang perlu restock bestie~ ✨</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {restockItems.map(item => (
+              <div
+                key={item.id}
+                onClick={() => handleCompleteRestock(item.id)}
+                className="flex items-center gap-3 p-3 bg-white rounded-lg border border-orange-100 hover:bg-orange-50 cursor-pointer transition-colors group"
+              >
+                <div className="w-5 h-5 rounded border-2 border-orange-300 group-hover:border-orange-500 flex items-center justify-center">
+                  <span className="text-orange-500 opacity-0 group-hover:opacity-100 transition-opacity text-xs">✓</span>
+                </div>
+                <span className="text-gray-800 flex-1">{item.text}</span>
+                <span className="text-xs text-gray-400">{new Date(item.created_at).toLocaleDateString('id-ID')}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ─── Create Checklist ─── */}
       {templates.length > 0 && (
         <div className="card bg-gradient-to-r from-blue-50 to-cyan-50">
           <h3 className="font-bold text-gray-800 mb-3">Buat Checklist Baru 📋</h3>
@@ -285,7 +451,7 @@ export default function Warehouse() {
         </div>
       )}
 
-      {/* Checklists */}
+      {/* ─── Checklists ─── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {checklists.map(checklist => {
           const completed = checklist.items.filter(i => i.checked).length;
@@ -328,7 +494,7 @@ export default function Warehouse() {
         </div>
       )}
 
-      {/* Daily Reports History */}
+      {/* ─── Daily Reports History ─── */}
       <div className="card">
         <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
           <TrendingUp className="text-blue-500" /> History Laporan Harian
@@ -364,7 +530,7 @@ export default function Warehouse() {
         </div>
       </div>
 
-      {/* Wrong Orders History */}
+      {/* ─── Wrong Orders History ─── */}
       <div className="card">
         <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
           <AlertTriangle className="text-yellow-500" /> Laporan Salah Pesanan
@@ -426,7 +592,7 @@ export default function Warehouse() {
         </div>
       </div>
 
-      {/* Daily Report Modal */}
+      {/* ─── Daily Report Modal ─── */}
       {showDailyReport && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl">
@@ -462,7 +628,7 @@ export default function Warehouse() {
         </div>
       )}
 
-      {/* Wrong Order Modal */}
+      {/* ─── Wrong Order Modal ─── */}
       {showWrongOrderForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl">
@@ -473,22 +639,11 @@ export default function Warehouse() {
             <form onSubmit={handleSubmitWrongOrder} className="space-y-4">
               <div>
                 <label className="label">🔢 Order ID / No Resi</label>
-                <input 
-                  type="text" 
-                  value={wrongOrderForm.order_id} 
-                  onChange={(e) => setWrongOrderForm({ ...wrongOrderForm, order_id: e.target.value })} 
-                  className="input" 
-                  placeholder="Masukkan order ID atau nomor resi"
-                  required 
-                />
+                <input type="text" value={wrongOrderForm.order_id} onChange={(e) => setWrongOrderForm({ ...wrongOrderForm, order_id: e.target.value })} className="input" placeholder="Masukkan order ID atau nomor resi" required />
               </div>
               <div>
                 <label className="label">📋 Jenis Kesalahan</label>
-                <select 
-                  value={wrongOrderForm.type} 
-                  onChange={(e) => setWrongOrderForm({ ...wrongOrderForm, type: e.target.value })} 
-                  className="input"
-                >
+                <select value={wrongOrderForm.type} onChange={(e) => setWrongOrderForm({ ...wrongOrderForm, type: e.target.value })} className="input">
                   <option value="wrong_item">Barang Salah</option>
                   <option value="wrong_address">Alamat Salah</option>
                   <option value="missing_item">Barang Kurang</option>
@@ -498,14 +653,7 @@ export default function Warehouse() {
               </div>
               <div>
                 <label className="label">📝 Keterangan</label>
-                <textarea 
-                  value={wrongOrderForm.description} 
-                  onChange={(e) => setWrongOrderForm({ ...wrongOrderForm, description: e.target.value })} 
-                  className="input" 
-                  rows="3" 
-                  placeholder="Jelaskan detail kesalahan..."
-                  required
-                />
+                <textarea value={wrongOrderForm.description} onChange={(e) => setWrongOrderForm({ ...wrongOrderForm, description: e.target.value })} className="input" rows="3" placeholder="Jelaskan detail kesalahan..." required />
               </div>
               <div className="flex gap-3 pt-4">
                 <button type="submit" className="btn bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white flex-1">Laporkan! ⚠️</button>
