@@ -16,6 +16,7 @@ import RekapPresensi from './pages/RekapPresensi';
 function App() {
   const [token, setToken] = useState(localStorage.getItem('token'));
   const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (token) {
@@ -35,13 +36,19 @@ function App() {
         .catch(() => {
           setToken(null);
           localStorage.removeItem('token');
+        })
+        .finally(() => {
+          setLoading(false);
         });
+    } else {
+      setLoading(false);
     }
   }, [token]);
 
   const handleLogin = (newToken, userData) => {
     setToken(newToken);
     setUser(userData);
+    setLoading(false);
     localStorage.setItem('token', newToken);
   };
 
@@ -53,6 +60,18 @@ function App() {
 
   if (!token) {
     return <Login onLogin={handleLogin} />;
+  }
+
+  // Show loading while verifying token
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full mx-auto mb-4"></div>
+          <p className="text-gray-600">Memuat...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
