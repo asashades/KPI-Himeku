@@ -131,11 +131,18 @@ export default function Reports() {
         </div>
       </div>
 
+      {/* Loading State */}
+      {loading && (
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full"></div>
+        </div>
+      )}
+
       {/* Reports Display */}
-      {reports && (
+      {!loading && reports && (
         <div className="space-y-6">
           {/* Host Live Report */}
-          {reports.hostLive && (
+          {reports.hostLive && reports.hostLive.length > 0 && (
             <div className="card">
               <div className="flex items-center gap-3 mb-4">
                 <div className="p-2 bg-red-100 rounded-lg">
@@ -190,7 +197,7 @@ export default function Reports() {
           )}
 
           {/* Warehouse Report */}
-          {reports.warehouse && (
+          {reports.warehouse && reports.warehouse.length > 0 && (
             <div className="card">
               <div className="flex items-center gap-3 mb-4">
                 <div className="p-2 bg-blue-100 rounded-lg">
@@ -235,7 +242,7 @@ export default function Reports() {
           )}
 
           {/* Crewstore Report */}
-          {reports.crewstore && (
+          {reports.crewstore && reports.crewstore.length > 0 && (
             <div className="card">
               <div className="flex items-center gap-3 mb-4">
                 <div className="p-2 bg-green-100 rounded-lg">
@@ -290,12 +297,17 @@ export default function Reports() {
               </div>
             </div>
           )}
-        </div>
-      )}
 
-      {loading && (
-        <div className="flex items-center justify-center h-64">
-          <div className="text-gray-500">Memuat laporan...</div>
+          {/* Empty State */}
+          {(!reports.hostLive || reports.hostLive.length === 0) && 
+           (!reports.warehouse || reports.warehouse.length === 0) && 
+           (!reports.crewstore || reports.crewstore.length === 0) && (
+            <div className="card text-center py-12">
+              <FileText className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+              <p className="text-lg text-gray-500">Tidak ada data laporan untuk periode ini</p>
+              <p className="text-sm text-gray-400 mt-1">Coba ubah filter tanggal atau departemen</p>
+            </div>
+          )}
         </div>
       )}
     </div>

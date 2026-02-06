@@ -223,7 +223,7 @@ export default function (db) {
     }
   });
 
-  // Get all hosts with their current month progress
+  // Get all hosts with their current month progress (from Google Sheets)
   router.get('/hosts', async (req, res) => {
     try {
       // Get current month start and end dates
@@ -233,30 +233,76 @@ export default function (db) {
       const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
       const monthEnd = lastDay.toISOString().split('T')[0];
       
-      // Step 1: Get all active hosts
+      // Step 1: Get all active hosts from database
       const hosts = await db.all(`
         SELECT h.id, h.staff_id, h.monthly_target_hours,
-               s.name, s.photo_url
+               s.name, s.email, s.photo_url
         FROM hosts h
         JOIN staff s ON h.staff_id = s.id
         WHERE h.active = 1
         ORDER BY s.name
       `);
 
-      // Step 2: Get session hours per host for current month
-      const sessionHours = await db.all(`
-        SELECT host_id, COALESCE(SUM(duration_hours), 0) as total_hours
-        FROM live_sessions
-        WHERE date >= ? AND date <= ?
-        GROUP BY host_id
-      `, [monthStart, monthEnd]);
-
-      // Step 3: Merge in JavaScript
-      const hoursMap = new Map();
-      for (const s of sessionHours) {
-        hoursMap.set(s.host_id, parseFloat(s.total_hours) || 0);
+      // Step 2: Get session hours from Google Sheets
+      let sheetsData = [];
+      try {
+        const url = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(SHEET_NAME)}`;
+        const response = await fetch(url);
+        const text = await response.text();
+        const jsonString = text.substring(47, text.length - 2);
+        const data = JSON.parse(jsonString);
+        
+        const cols = data.table.cols.map(col => col.label || '');
+        sheetsData = data.table.rows.map(row => {
+          const obj = {};
+          row.c.forEach((cell, idx) => {
+            const header = cols[idx];
+            if (header) {
+              obj[header] = cell ? (cell.f || cell.v || '') : '';
+            }
+          });
+          return obj;
+        }).filter(r => r['RekapID']);
+      } catch (e) {
+        console.error('Error fetching sheets data for hosts:', e.message);
       }
 
+      // Step 3: Calculate hours per host from sheets data
+      const hoursMap = new Map();
+      for (const row of sheetsData) {
+        // Parse date
+        let tanggal = '';
+        const dateMatch = String(row['TanggalLive']).match(/Date\((\d+),(\d+),(\d+)\)/);
+        if (dateMatch) {
+          const year = parseInt(dateMatch[1]);
+          const month = parseInt(dateMatch[2]); // 0-indexed
+          const day = parseInt(dateMatch[3]);
+          tanggal = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        } else if (/^\d{4}-\d{2}-\d{2}$/.test(row['TanggalLive'])) {
+          tanggal = row['TanggalLive'];
+        }
+
+        // Filter by date range
+        if (tanggal >= monthStart && tanggal <= monthEnd) {
+          const emailHost = (row['EmailHost'] || '').toLowerCase();
+          const namaHost = row['NamaHost'] || '';
+          const durasi = parseFloat(row['DurasiJam']) || 0;
+          
+          // Match by email or name
+          for (const host of hosts) {
+            const hostEmail = (host.email || '').toLowerCase();
+            const hostName = (host.name || '').toLowerCase();
+            
+            if ((emailHost && hostEmail && emailHost === hostEmail) || 
+                (namaHost && hostName && namaHost.toLowerCase().includes(hostName))) {
+              const currentHours = hoursMap.get(host.id) || 0;
+              hoursMap.set(host.id, currentHours + durasi);
+            }
+          }
+        }
+      }
+
+      // Step 4: Merge data
       const result = hosts.map(h => ({
         ...h,
         current_month_hours: hoursMap.get(h.id) || 0

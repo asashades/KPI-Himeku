@@ -3,6 +3,71 @@ import express from 'express';
 export default function (db) {
   const router = express.Router();
 
+  // Google Spreadsheet settings for Host Live
+  const SPREADSHEET_ID = '1FiTL5F7M5s6VFqDq4c4EghEembfV7oLMVmAXINAMEww';
+  const SHEET_NAME = 'RekapLive';
+
+  // Helper function to fetch Host Live data from Google Sheets
+  async function fetchHostLiveFromSheets(monthStart, monthEnd) {
+    try {
+      const url = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(SHEET_NAME)}`;
+      const response = await fetch(url);
+      if (!response.ok) return { totalHours: 0, totalSessions: 0, hosts: new Set() };
+      
+      const text = await response.text();
+      const jsonString = text.substring(47, text.length - 2);
+      const data = JSON.parse(jsonString);
+      
+      const cols = data.table.cols.map(col => col.label || '');
+      const rows = data.table.rows.map(row => {
+        const obj = {};
+        row.c.forEach((cell, idx) => {
+          const header = cols[idx];
+          if (header) {
+            obj[header] = cell ? (cell.f || cell.v || '') : '';
+          }
+        });
+        return obj;
+      });
+
+      // Parse date from Google Sheets format
+      const parseDate = (value) => {
+        if (!value) return '';
+        const dateMatch = String(value).match(/Date\((\d+),(\d+),(\d+)\)/);
+        if (dateMatch) {
+          const year = parseInt(dateMatch[1]);
+          const month = parseInt(dateMatch[2]); // 0-indexed
+          const day = parseInt(dateMatch[3]);
+          return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        }
+        // Try to parse as YYYY-MM-DD
+        if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+        return value;
+      };
+
+      let totalHours = 0;
+      let totalSessions = 0;
+      const hosts = new Set();
+
+      for (const row of rows) {
+        if (!row['RekapID']) continue;
+        
+        const tanggal = parseDate(row['TanggalLive']);
+        if (tanggal >= monthStart && tanggal <= monthEnd) {
+          totalHours += parseFloat(row['DurasiJam']) || 0;
+          totalSessions++;
+          if (row['EmailHost']) hosts.add(row['EmailHost'].toLowerCase());
+          else if (row['NamaHost']) hosts.add(row['NamaHost']);
+        }
+      }
+
+      return { totalHours, totalSessions, hostCount: hosts.size };
+    } catch (error) {
+      console.error('Error fetching Host Live from sheets:', error.message);
+      return { totalHours: 0, totalSessions: 0, hostCount: 0 };
+    }
+  }
+
   // Get KPI target from settings
   const getKpiTarget = async (departmentId) => {
     try {
@@ -30,23 +95,22 @@ export default function (db) {
       const contentCreatorKpi = await getKpiTarget(4);
       const warehouseKpi = await getKpiTarget(2);
 
-      // Host Live stats - separate queries to avoid JOIN multiplication
+      // Host Live stats - fetch from Google Sheets
       let hostLiveStats = { total_hosts: 0, total_target: 0, total_current: 0 };
       try {
+        // Get host target from database
         const hostCount = await db.get(`
           SELECT COUNT(*) as total_hosts, COALESCE(SUM(monthly_target_hours), 0) as total_target
           FROM hosts WHERE active = 1
         `);
-        const sessionHours = await db.get(`
-          SELECT COALESCE(SUM(ls.duration_hours), 0) as total_current
-          FROM live_sessions ls
-          JOIN hosts h ON ls.host_id = h.id
-          WHERE h.active = 1 AND ls.date >= ? AND ls.date <= ?
-        `, [monthStart, monthEnd]);
+        
+        // Get session hours from Google Sheets
+        const sheetsData = await fetchHostLiveFromSheets(monthStart, monthEnd);
+        
         hostLiveStats = {
-          total_hosts: parseInt(hostCount?.total_hosts) || 0,
+          total_hosts: sheetsData.hostCount || parseInt(hostCount?.total_hosts) || 0,
           total_target: parseFloat(hostCount?.total_target) || 0,
-          total_current: parseFloat(sessionHours?.total_current) || 0
+          total_current: sheetsData.totalHours || 0
         };
       } catch (e) { console.error('Dashboard hostLive error:', e.message); }
 

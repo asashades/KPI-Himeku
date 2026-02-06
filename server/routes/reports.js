@@ -3,6 +3,79 @@ import express from 'express';
 export default function (db) {
   const router = express.Router();
 
+  // Google Spreadsheet settings for Host Live
+  const SPREADSHEET_ID = '1FiTL5F7M5s6VFqDq4c4EghEembfV7oLMVmAXINAMEww';
+  const SHEET_NAME = 'RekapLive';
+
+  // Helper function to fetch Host Live data from Google Sheets
+  async function fetchHostLiveReportFromSheets(startDate, endDate) {
+    try {
+      const url = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(SHEET_NAME)}`;
+      const response = await fetch(url);
+      if (!response.ok) return [];
+      
+      const text = await response.text();
+      const jsonString = text.substring(47, text.length - 2);
+      const data = JSON.parse(jsonString);
+      
+      const cols = data.table.cols.map(col => col.label || '');
+      const rows = data.table.rows.map(row => {
+        const obj = {};
+        row.c.forEach((cell, idx) => {
+          const header = cols[idx];
+          if (header) {
+            obj[header] = cell ? (cell.f || cell.v || '') : '';
+          }
+        });
+        return obj;
+      });
+
+      // Parse date from Google Sheets format
+      const parseDate = (value) => {
+        if (!value) return '';
+        const dateMatch = String(value).match(/Date\((\d+),(\d+),(\d+)\)/);
+        if (dateMatch) {
+          const year = parseInt(dateMatch[1]);
+          const month = parseInt(dateMatch[2]); // 0-indexed
+          const day = parseInt(dateMatch[3]);
+          return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        }
+        if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+        return value;
+      };
+
+      // Group by host
+      const hostMap = new Map();
+      for (const row of rows) {
+        if (!row['RekapID']) continue;
+        
+        const tanggal = parseDate(row['TanggalLive']);
+        if (tanggal >= startDate && tanggal <= endDate) {
+          const hostName = row['NamaHost'] || row['EmailHost'] || 'Unknown';
+          const durasi = parseFloat(row['DurasiJam']) || 0;
+          
+          if (!hostMap.has(hostName)) {
+            hostMap.set(hostName, {
+              host_name: hostName,
+              monthly_target_hours: 52, // Default target
+              total_hours: 0,
+              total_sessions: 0
+            });
+          }
+          
+          const host = hostMap.get(hostName);
+          host.total_hours += durasi;
+          host.total_sessions++;
+        }
+      }
+
+      return Array.from(hostMap.values()).sort((a, b) => b.total_hours - a.total_hours);
+    } catch (error) {
+      console.error('Error fetching Host Live report from sheets:', error.message);
+      return [];
+    }
+  }
+
   // Get comprehensive report
   router.get('/', async (req, res) => {
     try {
@@ -13,24 +86,10 @@ export default function (db) {
         return res.json({});
       }
 
-      // Host Live Report
+      // Host Live Report - fetch from Google Sheets
       if (!department || department === '3') {
         try {
-          const hostReport = await db.all(`
-            SELECT 
-              s.name as host_name,
-              h.monthly_target_hours,
-              COALESCE(SUM(ls.duration_hours), 0) as total_hours,
-              COUNT(ls.id) as total_sessions
-            FROM hosts h
-            JOIN staff s ON h.staff_id = s.id
-            LEFT JOIN live_sessions ls ON h.id = ls.host_id
-              AND ls.date >= ? AND ls.date <= ?
-            WHERE h.active = 1
-            GROUP BY h.id, s.name, h.monthly_target_hours
-            ORDER BY total_hours DESC
-          `, [start_date, end_date]);
-          reports.hostLive = hostReport || [];
+          reports.hostLive = await fetchHostLiveReportFromSheets(start_date, end_date);
         } catch (e) {
           console.error('Reports hostLive error:', e.message);
           reports.hostLive = [];
@@ -118,20 +177,7 @@ export default function (db) {
         text += `📺 HOST LIVE\n`;
         text += `${'-'.repeat(50)}\n`;
         
-        const hostReport = await db.all(`
-          SELECT 
-            s.name as host_name,
-            h.monthly_target_hours,
-            COALESCE(SUM(ls.duration_hours), 0) as total_hours,
-            COUNT(ls.id) as total_sessions
-          FROM hosts h
-          JOIN staff s ON h.staff_id = s.id
-          LEFT JOIN live_sessions ls ON h.id = ls.host_id
-            AND ls.date >= ? AND ls.date <= ?
-          WHERE h.active = 1
-          GROUP BY h.id, s.name, h.monthly_target_hours
-          ORDER BY total_hours DESC
-        `, [start_date, end_date]);
+        const hostReport = await fetchHostLiveReportFromSheets(start_date, end_date);
 
         hostReport.forEach(host => {
           const progress = host.monthly_target_hours > 0 
