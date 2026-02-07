@@ -1,5 +1,5 @@
 {
-  "name": "kpi-himeku",
+  "name": "himecrew-app",
   "version": "1.0.0",
   "description": "KPI & Checklist Tracker for Host Live, Warehouse, and Crewstore departments",
   "main": "server/index.js",

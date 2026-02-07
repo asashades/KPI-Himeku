@@ -69,7 +69,7 @@ function doPost(e) {
 function doGet(e) {
   return ContentService.createTextOutput(JSON.stringify({
     status: 'ok',
-    message: 'KPI Himeku Photo Upload Service',
+    message: 'Himecrew App Photo Upload Service',
     usage: 'POST with JSON body: { base64: string, filename: string, mimeType: string }'
   })).setMimeType(ContentService.MimeType.JSON);
 }

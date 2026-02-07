@@ -37,7 +37,7 @@ export default function Login({ onLogin }) {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600">
       <div className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-800">KPI Himeku</h1>
+          <h1 className="text-3xl font-bold text-gray-800">Himecrew App</h1>
           <p className="text-gray-600 mt-2">Tracker Performa Departemen</p>
         </div>
 
@@ -82,10 +82,6 @@ export default function Login({ onLogin }) {
             {loading ? 'Memproses...' : 'Login'}
           </button>
         </form>
-
-        <div className="mt-6 text-center text-sm text-gray-500">
-          <p>Default: admin / admin123</p>
-        </div>
       </div>
     </div>
   );

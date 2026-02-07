@@ -1,4 +1,4 @@
-# 🎯 KPI Himeku - Tracker Performa Departemen
+# 🎯 Himecrew App - Tracker Performa Departemen
 
 Aplikasi web full-stack untuk tracking performa 3 departemen: **Host Live**, **Warehouse**, dan **Crewstore** dengan sistem KPI dan Checklist yang fleksibel.
 

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "🎯 KPI Himeku - Starting Application..."
+echo "🎯 Himecrew App - Starting Application..."
 echo ""
 echo "Installing dependencies (if needed)..."
 npm install

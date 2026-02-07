@@ -3,7 +3,7 @@
  * 
  * SETUP INSTRUCTIONS:
  * 1. Go to https://script.google.com
- * 2. Create new project, name it "KPI Himeku - Presensi Upload"
+ * 2. Create new project, name it "Himecrew App - Presensi Upload"
  * 3. Copy this entire code and paste it
  * 4. Create a folder in Google Drive for photos, copy the folder ID from URL
  * 5. Replace FOLDER_ID below with your folder ID

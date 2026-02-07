@@ -69,7 +69,7 @@ export default function Layout({ children, user, onLogout }) {
       {/* Desktop Sidebar */}
       <aside className="hidden lg:block fixed top-0 left-0 h-screen w-64 bg-white shadow-lg z-40">
         <div className="p-6">
-          <h1 className="text-2xl font-bold text-gray-800">KPI Himeku</h1>
+          <h1 className="text-2xl font-bold text-gray-800">Himecrew App</h1>
           <p className="text-sm text-gray-500 mt-1">Tracker Performa</p>
         </div>
 
@@ -118,7 +118,7 @@ export default function Layout({ children, user, onLogout }) {
 
       {/* Mobile Header */}
       <header className="lg:hidden fixed top-0 left-0 right-0 h-14 bg-white shadow-sm z-40 flex items-center justify-between px-4">
-        <h1 className="text-lg font-bold text-gray-800">KPI Himeku</h1>
+        <h1 className="text-lg font-bold text-gray-800">Himecrew App</h1>
         <div className="flex items-center gap-2">
           <span className="text-sm text-gray-600">{user?.name?.split(' ')[0]}</span>
           <button

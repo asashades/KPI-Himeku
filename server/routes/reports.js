@@ -168,7 +168,7 @@ export default function (db) {
   router.get('/export', async (req, res) => {
     try {
       const { department, start_date, end_date } = req.query;
-      let text = `LAPORAN KPI HIMEKU\n`;
+      let text = `LAPORAN HIMECREW APP\n`;
       text += `Periode: ${start_date} s/d ${end_date}\n`;
       text += `${'='.repeat(50)}\n\n`;
 

@@ -1,4 +1,4 @@
-# KPI Himeku - Deployment Guide
+# Himecrew App - Deployment Guide
 
 ## Quick Deploy Options
 
@@ -53,7 +53,7 @@ Foto presensi akan disimpan di Google Drive menggunakan Apps Script sebagai midd
 
 1. **Buat Folder di Google Drive**
    - Buka [drive.google.com](https://drive.google.com)
-   - Buat folder baru, misal "KPI Himeku - Presensi"
+   - Buat folder baru, misal "Himecrew App - Presensi"
    - Copy folder ID dari URL: `https://drive.google.com/drive/folders/FOLDER_ID_HERE`
 
 2. **Deploy Apps Script**
@@ -78,7 +78,7 @@ Foto presensi akan disimpan di Google Drive menggunakan Apps Script sebagai midd
    - Coba presensi dengan foto
    - Cek folder Google Drive, foto akan tersimpan dengan struktur:
      ```
-     KPI Himeku - Presensi/
+     Himecrew App - Presensi/
      ├── 2026-02/
      │   ├── presensi_Nama_Staff_123456789.jpg
      │   └── ...
